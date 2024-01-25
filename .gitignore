@@ -1,1 +1,6 @@
+.buildozer
 pr.py
+buildozer.spec
+notas.txt
+comando.txt
+pr.sh
