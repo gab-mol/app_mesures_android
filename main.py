@@ -10,17 +10,17 @@ Config.set('graphics', 'width', '500')
 Config.set('graphics', 'height', '700')
 from kivy.core.window import Window
 from kivy.lang import Builder
-from kivy.properties import DictProperty, ListProperty, StringProperty
+from kivy.properties import DictProperty, StringProperty
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
-from kivymd.uix.label import MDLabel
 
 # other modules
 import os
 from configparser import ConfigParser
-import sqlalchemy as sqla
-import pandas as pd
+# import sqlalchemy as sqla
+# import pandas as pd
 from datetime import datetime, timezone
+from psycopg2 import connect
 # KV code         ####     ####     ####
 KV = '''
 <ScManag>:
@@ -95,22 +95,39 @@ class DbCon:
         config = ConfigParser()
         config.read(RUTA_CFG)
         bd_cred = config["DBcredent"]
-        usu, cont, host = bd_cred["user"], bd_cred["pwd"], bd_cred["host"]
-        puet, self.bd, self.squ = bd_cred["port"], bd_cred["dbname"], bd_cred["schema"]
+        self.usu, self.cont, self.host = bd_cred["user"], bd_cred["pwd"], bd_cred["host"]
+        self.puet, self.bd, self.squ = bd_cred["port"], bd_cred["dbname"], bd_cred["schema"]
+        self.tb_name = "medidas_diarias"
+
+    def send_data(self, peso, dso_mx, 
+        dso_mn, dbo_mx, dbo_mn):
+        conn = connect(
+            dbname=self.bd,
+            user=self.usu,
+            password=self.cont,
+            host=self.host,
+            port=self.puet,
+            options=f'-c search_path={self.squ}'
+
+        )
         
-        url = f"postgresql://{usu}:{cont}@{host}:{puet}/{self.bd}?sslmode=require"
-        self.engine = sqla.create_engine(url,
-                                connect_args={"options": f"-c search_path={self.squ}"}
-                                )
+        with conn.cursor() as cur:
+            cur.execute(f'''
+                    INSERT INTO {self.tb_name} (t_stamp, peso, diametro_dso_mx, 
+                    diametro_dso_mn, diametro_dbo_mx, diametro_dbo_mn)
+                    VALUES (
+                        '{datetime.now(timezone.utc)}',
+                        {peso},
+                        {dso_mx},
+                        {dso_mn},
+                        {dbo_mx},
+                        {dbo_mn}
+                    )
+                    ''')
+            conn.commit()
+            
+        conn.close()
         
-        with self.engine.connect() as con:
-            if self.squ not in con.dialect.get_schema_names(con):
-                print("\nESQUEMA NO EXISTE, CREAR...")
-                try:
-                    con.execute(sqla.text(f"CREATE SCHEMA {self.squ}"))
-                    con.commit()
-                except:
-                    raise Exception("ERROR AL CREAR ESQUEMA PARA TABLAS")
                 
     def create_tb(self, nomb:str,cols_type:dict, id_auto=True):
         
@@ -134,57 +151,72 @@ debe proporcionarse (luego del tipo de dato en `cols_type`).
             opc = ""
 
         try:
-            with self.engine.begin() as con:
-                con.execute(sqla.text(f"CREATE TABLE IF NOT EXISTS {nomb}(\n\
-{opc}\n{cols_q})"))
-                con.commit()
+
+            conn = connect(
+                dbname=self.bd,
+                user=self.usu,
+                password=self.cont,
+                host=self.host,
+                port=self.puet,
+                options=f'-c search_path={self.squ}'
+
+            )
+        
+            with conn.cursor() as cur:
+                cur.execute(f"CREATE TABLE IF NOT EXISTS {nomb}(\n\
+{opc}\n{cols_q})")
+                conn.commit()                
+            conn.close()
+            
             print(f"\nTabla: {nomb} (DB: {self.bd}; \
 schem: {self.squ}) = DISPONIBLE\n")
+
         except:
             Exception("PostgreSQL error")
-        
-    def send_df(self, nomb:str, df:pd.DataFrame, method=None):
 
-        '''Enviar dataframe a tabla especificada de la base.
 
-        args
-            nomb: nombre de la tabla.
-            df: dataframe a cargar.
-            method: {None, 'multi', 'callable'}, defoult: None. Parámetro de 
-            `pandas.DataFrame.to_sql`.'''
+#     def send_df(self, nomb:str, df:pd.DataFrame, method=None):
 
-        try:
-            with self.engine.connect() as con, con.begin():
-                print("Conectando con postgreSQL...")
-                print(df)
-                df.to_sql(
-                    name=nomb,
-                    con=con,
-                    schema=self.squ,
-                    if_exists="append",
-                    index=False,
-                    method=method,
-                    chunksize=1000
-                )
-        except:
-            raise Exception("Error de carga: pandas.Dataframe >> postgreSQL")
+#         '''Enviar dataframe a tabla especificada de la base.
 
-    def sql_query(self, query:str, commit=True):
+#         args
+#             nomb: nombre de la tabla.
+#             df: dataframe a cargar.
+#             method: {None, 'multi', 'callable'}, defoult: None. Parámetro de 
+#             `pandas.DataFrame.to_sql`.'''
 
-        '''Crea conexión con el motor instanciado y 
-        envia query.
+#         try:
+#             with self.engine.connect() as con, con.begin():
+#                 print("Conectando con postgreSQL...")
+#                 print(df)
+#                 df.to_sql(
+#                     name=nomb,
+#                     con=con,
+#                     schema=self.squ,
+#                     if_exists="append",
+#                     index=False,
+#                     method=method,
+#                     chunksize=1000
+#                 )
+#         except:
+#             raise Exception("Error de carga: pandas.Dataframe >> postgreSQL")
 
-        args
-            query: str con sentencia SQL.
-            commit: aplicar método `sqlalchemy.Connection.commit()`, defoult: True
-            '''
+#     def sql_query(self, query:str, commit=True):
 
-        try:
-            with self.engine.connect() as con, con.begin():
-                con.execute(sqla.text(query))
-                if commit: con.commit()
-        except:
-            raise Exception("Error al ejecutar sentencia SQL")
+#         '''Crea conexión con el motor instanciado y 
+#         envia query.
+
+#         args
+#             query: str con sentencia SQL.
+#             commit: aplicar método `sqlalchemy.Connection.commit()`, defoult: True
+#             '''
+
+#         try:
+#             with self.engine.connect() as con, con.begin():
+#                 con.execute(sqla.text(query))
+#                 if commit: con.commit()
+#         except:
+#             raise Exception("Error al ejecutar sentencia SQL")
 
 # Kivy classes          ####     ####     ####
 class ScManag(MDScreenManager):
@@ -219,20 +251,13 @@ class ScManag(MDScreenManager):
     def save_mes(self):
         print("prueba:\n",self.peso, self.dso_mx, self.dso_mn,
             self.dbo_mx, self.dbo_mn)        
-        self.db_con.sql_query(
-            query=f'''
-            INSERT INTO {self.tb_name} (t_stamp, peso, diametro_dso_mx, 
-            diametro_dso_mn, diametro_dbo_mx, diametro_dbo_mn)
-            VALUES (
-                '{datetime.now(timezone.utc)}',
-                {self.peso},
-                {self.dso_mx},
-                {self.dso_mn},
-                {self.dbo_mx},
-                {self.dbo_mn}
+        self.db_con.send_data(
+            self.peso,
+            self.dso_mx,
+            self.dso_mn,
+            self.dbo_mx,
+            self.dbo_mn
             )
-            '''
-        )
             
 class MedidasApp(MDApp):
     
