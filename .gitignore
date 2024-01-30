@@ -1,5 +1,6 @@
 .buildozer
 pr.py
+pr2.py
 buildozer.spec
 notas.txt
 comando.txt
