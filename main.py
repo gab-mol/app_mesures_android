@@ -10,7 +10,7 @@ Config.set('graphics', 'width', '500')
 Config.set('graphics', 'height', '700')
 from kivy.core.window import Window
 from kivy.lang import Builder
-from kivy.properties import DictProperty, StringProperty, NumericProperty 
+from kivy.properties import DictProperty, StringProperty 
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
 from kivymd.uix.dialog import MDDialog
@@ -18,10 +18,9 @@ from kivymd.uix.button import MDFlatButton
 from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.label import MDLabel
 from kivy.metrics import dp
-from kivymd.uix.textfield.textfield import MDTextField
+from kivy.config import ConfigParser
 # other modules
 import os
-from configparser import ConfigParser
 from datetime import datetime, timezone
 import requests
 # import json
