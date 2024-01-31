@@ -13,14 +13,16 @@ from kivy.lang import Builder
 from kivy.properties import DictProperty, StringProperty
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
+from kivymd.uix.dialog import MDDialog
+from kivymd.uix.button import MDFlatButton
 
 # other modules
 import os
 from configparser import ConfigParser
-# import sqlalchemy as sqla
-# import pandas as pd
 from datetime import datetime, timezone
-from psycopg2 import connect
+import requests
+# import json
+
 # KV code         ####     ####     ####
 KV = '''
 <ScManag>:
@@ -41,14 +43,6 @@ KV = '''
             size_hint: 1, .9
             orientation: 'vertical'
             padding: 15
-            spacing: 7
-            # MDLabel:
-            #     size_hint: 1, .1
-            #     pos_hint: {'top': 1}
-            #     text: "Prueba00"
-            #     font_size: 50
-            #     theme_text_color: "Custom"
-            #     text_color: app.COLS["purple"]
             MDTextField:
                 id: peso_tf
                 size_hint: 1, .08
@@ -88,135 +82,6 @@ KV = '''
 
 Builder.load_string(KV)
 
-# Connection          ####     ####     ####
-class DbCon:
-    def __init__(self) -> None:
-        RUTA_CFG = os.path.join(os.path.dirname(__file__), "config.ini")
-        config = ConfigParser()
-        config.read(RUTA_CFG)
-        bd_cred = config["DBcredent"]
-        self.usu, self.cont, self.host = bd_cred["user"], bd_cred["pwd"], bd_cred["host"]
-        self.puet, self.bd, self.squ = bd_cred["port"], bd_cred["dbname"], bd_cred["schema"]
-        self.tb_name = "medidas_diarias"
-
-    def send_data(self, peso, dso_mx, 
-        dso_mn, dbo_mx, dbo_mn):
-        conn = connect(
-            dbname=self.bd,
-            user=self.usu,
-            password=self.cont,
-            host=self.host,
-            port=self.puet,
-            options=f'-c search_path={self.squ}'
-
-        )
-        
-        with conn.cursor() as cur:
-            cur.execute(f'''
-                    INSERT INTO {self.tb_name} (t_stamp, peso, diametro_dso_mx, 
-                    diametro_dso_mn, diametro_dbo_mx, diametro_dbo_mn)
-                    VALUES (
-                        '{datetime.now(timezone.utc)}',
-                        {peso},
-                        {dso_mx},
-                        {dso_mn},
-                        {dbo_mx},
-                        {dbo_mn}
-                    )
-                    ''')
-            conn.commit()
-            
-        conn.close()
-        
-                
-    def create_tb(self, nomb:str,cols_type:dict, id_auto=True):
-        
-        '''
-        Crea la tabla en base de datos con el nombre 
-        y columnas/tipo dato especificado, si esta NO existe.
-
-        ### Parameters
-            - nomb: str nombre de tabla
-            - cols_type: dict claves= nombre.col | valores = tipo.dato POSGRESQL
-            - id_auto: defoult: True. Controla si clave primaria es autoincremental o \
-debe proporcionarse (luego del tipo de dato en `cols_type`).
-        '''
-        
-        D_l = [f"{k} {cols_type[k]}" for k in cols_type]
-        cols_q = ",\n".join(D_l)
-
-        if id_auto:
-            opc = "ID SERIAL PRIMARY KEY,"
-        else:
-            opc = ""
-
-        try:
-
-            conn = connect(
-                dbname=self.bd,
-                user=self.usu,
-                password=self.cont,
-                host=self.host,
-                port=self.puet,
-                options=f'-c search_path={self.squ}'
-
-            )
-        
-            with conn.cursor() as cur:
-                cur.execute(f"CREATE TABLE IF NOT EXISTS {nomb}(\n\
-{opc}\n{cols_q})")
-                conn.commit()                
-            conn.close()
-            
-            print(f"\nTabla: {nomb} (DB: {self.bd}; \
-schem: {self.squ}) = DISPONIBLE\n")
-
-        except:
-            Exception("PostgreSQL error")
-
-
-#     def send_df(self, nomb:str, df:pd.DataFrame, method=None):
-
-#         '''Enviar dataframe a tabla especificada de la base.
-
-#         args
-#             nomb: nombre de la tabla.
-#             df: dataframe a cargar.
-#             method: {None, 'multi', 'callable'}, defoult: None. Parámetro de 
-#             `pandas.DataFrame.to_sql`.'''
-
-#         try:
-#             with self.engine.connect() as con, con.begin():
-#                 print("Conectando con postgreSQL...")
-#                 print(df)
-#                 df.to_sql(
-#                     name=nomb,
-#                     con=con,
-#                     schema=self.squ,
-#                     if_exists="append",
-#                     index=False,
-#                     method=method,
-#                     chunksize=1000
-#                 )
-#         except:
-#             raise Exception("Error de carga: pandas.Dataframe >> postgreSQL")
-
-#     def sql_query(self, query:str, commit=True):
-
-#         '''Crea conexión con el motor instanciado y 
-#         envia query.
-
-#         args
-#             query: str con sentencia SQL.
-#             commit: aplicar método `sqlalchemy.Connection.commit()`, defoult: True
-#             '''
-
-#         try:
-#             with self.engine.connect() as con, con.begin():
-#                 con.execute(sqla.text(query))
-#                 if commit: con.commit()
-#         except:
-#             raise Exception("Error al ejecutar sentencia SQL")
 
 # Kivy classes          ####     ####     ####
 class ScManag(MDScreenManager):
@@ -230,35 +95,55 @@ class ScManag(MDScreenManager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.app = MDApp.get_running_app()
-        self.db_con = DbCon()
-        self.tb_name = "medidas_diarias"
-        # Preparar tabla destino
-        self.db_con.create_tb(
-            nomb = self.tb_name,
-            cols_type = {
-                "t_stamp": "TIMESTAMPTZ PRIMARY KEY",
-                "peso": "FLOAT",
-                "diametro_dso_mx":"FLOAT",
-                "diametro_dso_mn":"FLOAT",
-                "diametro_dbo_mx":"FLOAT",
-                "diametro_dbo_mn":"FLOAT"
-            },
-            id_auto = False
-        )
         
+        # Read database connection info from "db.ini"
+        DIR = os.getcwd()
+        config = ConfigParser()
+        config.read(os.path.join(DIR, "db.ini"))
+        self.db_url = config["firebase"]["url"]
+        self.data_name = config["firebase"]["data_name"]
+        
+        self.download_all()
 
-    # Screen: 'corp_mes' methods        ####
+    # Screen: 'corp_mes' methods        ####str(datetime.now(timezone.utc))
     def save_mes(self):
+        '''Send to database using `request.post` method.
+        A timestamp is included along with the data 
+        (`datetime` module. UTC).
+        '''
         print("prueba:\n",self.peso, self.dso_mx, self.dso_mn,
-            self.dbo_mx, self.dbo_mn)        
-        self.db_con.send_data(
-            self.peso,
-            self.dso_mx,
-            self.dso_mn,
-            self.dbo_mx,
-            self.dbo_mn
+            self.dbo_mx, self.dbo_mn)
+        timestamp = str(datetime.now(timezone.utc)).replace(" ", "_")
+        data ={
+            "timestamp":timestamp,
+            "medidas":{
+                "peso":self.peso,
+                "dso_mx":self.dso_mx,
+                "dso_mn":self.dso_mn,
+                "dbo_mx":self.dbo_mx,
+                "dbo_mn":self.dbo_mn
+                }
+            }
+
+        try:
+            res = requests.post(
+                url=self.db_url+self.data_name+"/.json", 
+                json=data
             )
-            
+        except:
+            print("POST ERROR: data could not be sent")
+            self.app.warning()
+        finally:
+            print(res)            
+        
+    def download_all(self):
+        '''Verificar'''
+        res2 = requests.get(url=self.db_url+"medidasxfecha/.json")
+        res_json = res2.json()
+        for k in res_json.keys():
+            print(res_json[k], type(res_json[k]))
+            print("")
+        
 class MedidasApp(MDApp):
     
     COLS = DictProperty()
@@ -282,7 +167,27 @@ class MedidasApp(MDApp):
         '''Al cambiar dimensiones de ventana'''
         self.wresize["bar_fsize"] = str(int(Window.size[1]/15))
         print(self.wresize["bar_fsize"])
-
+    
+    def warning(self):
+        '''POST error warning.'''
+        if not self.w_emg:
+            self.w_emg = MDDialog(
+                text="NO SE PUDO ENVIAR\n (verificar conexión a internet)",
+                buttons=[
+                    MDFlatButton(
+                        text="OK",
+                        theme_text_color="Custom",
+                        text_color=self.theme_cls.primary_color,
+                        on_press= self.close_warng
+                    ),
+                ]
+            )
+            self.w_emg.open()
+            
+    def close_warng(self):
+        if self.w_emg:
+            self.w_emg.dismiss(force=True)
+            
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Purple"
