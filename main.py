@@ -10,12 +10,15 @@ Config.set('graphics', 'width', '500')
 Config.set('graphics', 'height', '700')
 from kivy.core.window import Window
 from kivy.lang import Builder
-from kivy.properties import DictProperty, StringProperty
+from kivy.properties import DictProperty, StringProperty, NumericProperty 
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
-
+from kivymd.uix.snackbar import MDSnackbar
+from kivymd.uix.label import MDLabel
+from kivy.metrics import dp
+from kivymd.uix.textfield.textfield import MDTextField
 # other modules
 import os
 from configparser import ConfigParser
@@ -33,11 +36,19 @@ KV = '''
     dbo_mn: bo_mn_tf.text
     Screen:
         name: "corp_mes"
-        MDTopAppBar:
-            title: "[size="+app.wresize["bar_fsize"]+"]Medidas[/size]"
+        FloatLayout:
             size_hint: 1, .1
-            right_action_items: [["content-save", lambda x: root.save_mes()]]
             pos_hint: {'top': 1}
+            MDTopAppBar:
+                title: "[size="+app.wresize["bar_fsize"]+"]  Medidas[/size]"
+                anchor_title: "left"
+                # right_action_items: [["content-save", lambda x: root.save_mes()]]
+                pos_hint: {'top': 1}
+            MDIconButton:
+                icon: "content-save"
+                pos_hint: {'right': .99, "center_y": .55}
+                icon_size: app.wresize["bar_fsize"]
+                on_press: root.save_mes()
         BoxLayout:
             id: fields_cont
             size_hint: 1, .9
@@ -77,10 +88,12 @@ KV = '''
                 mode: "rectangle"
                 font_size: app.wresize["bar_fsize"]
                 hint_text: "Diámetro BO max (cm)"
+                markup: True
                 line_color_normal: app.theme_cls.accent_color
 '''
 
 Builder.load_string(KV)
+
 
 
 # Kivy classes          ####     ####     ####
@@ -102,7 +115,6 @@ class ScManag(MDScreenManager):
         config.read(os.path.join(DIR, "db.ini"))
         self.db_url = config["firebase"]["url"]
         self.data_name = config["firebase"]["data_name"]
-        
         self.download_all()
 
     # Screen: 'corp_mes' methods        ####str(datetime.now(timezone.utc))
@@ -130,6 +142,7 @@ class ScManag(MDScreenManager):
                 url=self.db_url+self.data_name+"/.json", 
                 json=data
             )
+            self.send_note()
         except:
             print("POST ERROR: data could not be sent")
             self.app.warning()
@@ -143,11 +156,33 @@ class ScManag(MDScreenManager):
         for k in res_json.keys():
             print(res_json[k], type(res_json[k]))
             print("")
+            
+    def send_note(self):
+        '''
+        Barra inferior emergente para recordar al usuario las coordenadas 
+        y hora de descarga
+        '''
+        print(self.app.wresize["warg_font_s"])
+        MDSnackbar(
+            MDLabel(
+                text=f'[size={self.app.wresize["warg_font_s"]}\
+]  Datos enviados[/size]',
+                markup=True,
+                bold=True,
+                halign= "center"
+            ),
+            duration=3,
+            y=dp(24),
+            pos_hint={"center_x": 0.5, "top":.8},
+            size_hint_x=0.8,
+            radius=[20,20,20,20]           
+        ).open()
         
 class MedidasApp(MDApp):
     
     COLS = DictProperty()
     wresize = DictProperty()
+    w_emg = None
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -155,6 +190,7 @@ class MedidasApp(MDApp):
         # valores relativos
         self.wresize["bar_fsize"] = str(int(Window.size[1]/15))
         self.wresize["input_font_s"] = str(int(Window.size[1]/15))
+        self.wresize["warg_font_s"] = str(int(Window.size[1]/30))
         Window.bind(on_resize=self.on_resize)
 
         # colores (rgb 0-1)
@@ -184,10 +220,10 @@ class MedidasApp(MDApp):
             )
             self.w_emg.open()
             
-    def close_warng(self):
+    def close_warng(self, *args):
         if self.w_emg:
             self.w_emg.dismiss(force=True)
-            
+        
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Purple"
