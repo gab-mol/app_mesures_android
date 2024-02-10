@@ -20,7 +20,6 @@ from kivymd.uix.label import MDLabel
 from kivy.metrics import dp
 from kivy.config import ConfigParser
 # other modules
-import os
 from datetime import datetime, timezone
 import requests
 # import json
@@ -36,7 +35,7 @@ KV = '''
     Screen:
         name: "corp_mes"
         FloatLayout:
-            size_hint: 1, .1
+            size_hint: 1, .13
             pos_hint: {'top': 1}
             MDTopAppBar:
                 title: "[size="+app.wresize["bar_fsize"]+"]  Medidas[/size]"
@@ -45,7 +44,7 @@ KV = '''
                 pos_hint: {'top': 1}
             MDIconButton:
                 icon: "content-save"
-                pos_hint: {'right': .99, "center_y": .55}
+                pos_hint: {'right': .99, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.save_mes()
         BoxLayout:
@@ -109,9 +108,8 @@ class ScManag(MDScreenManager):
         self.app = MDApp.get_running_app()
         
         # Read database connection info from "db.ini"
-        DIR = os.getcwd()
         config = ConfigParser()
-        config.read(os.path.join(DIR, "db.ini"))
+        config.read("db.ini")
         self.db_url = config["firebase"]["url"]
         self.data_name = config["firebase"]["data_name"]
         self.download_all()
@@ -232,4 +230,3 @@ class MedidasApp(MDApp):
 
 if __name__ == "__main__":
     MedidasApp().run()
-
