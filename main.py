@@ -1,5 +1,5 @@
 '''
-# Antotador personal. 
+# Antotador personal.
 Intento de aplicación diseñada para android.
 
 '''
@@ -22,16 +22,110 @@ from kivy.config import ConfigParser
 # other modules
 from datetime import datetime, timezone
 import requests
-# import json
+import pyrebase
 
 # KV code         ####     ####     ####
 KV = '''
+#: import SlideTransition kivy.uix.screenmanager.SlideTransition
 <ScManag>:
+
+    user_mail: mail.text
+    user_pwd: pwd.text
+    
+    mail_r: mail_r.text
+    pwd_r1: pwd_r1.text
+    pwd_r2: pwd_r2.text
+
     peso: peso_tf.text
     dso_mx: so_mx_tf.text
     dso_mn: so_mn_tf.text
     dbo_mx: bo_mx_tf.text
     dbo_mn: bo_mn_tf.text
+    
+    Screen:
+        name: "auth_sign"
+        FloatLayout:
+            # padding: 15
+            MDLabel:
+                pos_hint: {'center_x': 0.8,'center_y': .9}
+                font_size: app.wresize["input_font_s"]
+                text: "Ingresar."
+                bold: True
+                color: app.COLS["purple"]
+            MDTextField:
+                id: mail
+                pos_hint: {'center_x': 0.5,'center_y': .75}
+                size_hint_x: 0.85
+                hint_text: "Correo"
+                mode: "rectangle"
+                font_size: app.wresize["bar_fsize"]
+                line_color_normal: app.theme_cls.accent_color
+            MDTextField:
+                id: pwd
+                pos_hint: {'center_x': 0.5,'center_y': .55}
+                size_hint_x: 0.85
+                hint_text: "Contraseña (medidas-app)"
+                mode: "rectangle"
+                font_size: app.wresize["bar_fsize"]
+                password: True
+                line_color_normal: app.theme_cls.accent_color
+            MDRaisedButton:
+                pos_hint: {'center_x': .49,'center_y': .4}
+                font_size: app.wresize["titl_font_s"]
+                text: "Entrar"
+                on_release: app.root.sign_in()
+            MDFlatButton:
+                pos_hint: {'center_x': .2,'center_y': .3}
+                font_size: app.wresize["titl_font_s"]
+                text: "[color=#dede35]Registrarse.[/color]"
+                on_press:
+                    app.root.transition = SlideTransition(direction="left")
+                    app.root.current = "auth_regis"             
+    Screen:
+        name: "auth_regis"
+        FloatLayout:
+            MDLabel:
+                pos_hint: {'center_x': 0.595,'center_y': .9}
+                font_size: app.wresize["titl_font_s"]
+                text: "Registrarse. \\nCorreo a elección y contraseña"
+                bold: True
+                color: app.COLS["purple"]
+            MDTextField:
+                id: mail_r
+                pos_hint: {'center_x': 0.5,'center_y': .75}
+                size_hint_x: 0.85
+                hint_text: "Correo"
+                mode: "rectangle"
+                font_size: app.wresize["bar_fsize"]
+                line_color_normal: app.theme_cls.accent_color
+            MDTextField:
+                id: pwd_r1
+                pos_hint: {'center_x': 0.5,'center_y': .55}
+                size_hint_x: 0.85
+                hint_text: "Contraseña"
+                mode: "rectangle"
+                font_size: app.wresize["bar_fsize"]
+                line_color_normal: app.theme_cls.accent_color
+            MDTextField:
+                id: pwd_r2
+                pos_hint: {'center_x': 0.5,'center_y': .35}
+                size_hint_x: 0.85
+                hint_text: "Confirmar contraseña"
+                mode: "rectangle"
+                font_size: app.wresize["bar_fsize"]
+                line_color_normal: app.theme_cls.accent_color
+            MDRaisedButton:
+                pos_hint: {'center_x': .32,'center_y': .22}
+                font_size: app.wresize["titl_font_s"]
+                text: "Confirmar"
+                on_release: app.root.registr()
+            MDFlatButton:
+                pos_hint: {'center_x': .32,'center_y': .12}
+                font_size: app.wresize["titl_font_s"]
+                text: "[color=#dede35]Volver a Ingresar.[/color]"
+                on_press: 
+                    app.root.transition = SlideTransition(direction="right")
+                    app.root.current = "auth_sign"         
     Screen:
         name: "corp_mes"
         FloatLayout:
@@ -92,28 +186,85 @@ KV = '''
 
 Builder.load_string(KV)
 
-
+class FireBase:
+    
+    def __init__(self, config:ConfigParser):
+        db_confg = config["pyrebase"]
+        conf = {
+                "apiKey": db_confg["apiKey"],
+                "authDomain": db_confg["authDomain"],
+                "databaseURL": db_confg["databaseURL"],
+                "projectId": db_confg["projectId"],
+                "storageBucket": db_confg["storageBucket"],
+                "messagingSenderId": db_confg["messagingSenderId"],
+                "appId": db_confg["appId"],
+                "measurementId": db_confg["measurementId"],
+                }
+        
+        try:
+            conn = pyrebase.initialize_app(conf)
+            print("`initialize_app`: > WORK")
+        except:
+            print("`initialize_app`: X FAIL")
+        
 
 # Kivy classes          ####     ####     ####
 class ScManag(MDScreenManager):
+    
+    # autentication propertys
+    user_mail = StringProperty()
+    user_pwd = StringProperty()
+    
+    mail_r = StringProperty()
+    pwd_r1 = StringProperty()
+    pwd_r2 = StringProperty()
+    
+    # 'Mesures screen' propertys
     peso = StringProperty()
     dso_mx = StringProperty()
     dso_mn = StringProperty()
     dbo_mx = StringProperty()
     dbo_mn = StringProperty()
-
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.app = MDApp.get_running_app()
+        self.config = ConfigParser()
+        self.config.read("db.ini")        
         
-        # Read database connection info from "db.ini"
-        config = ConfigParser()
-        config.read("db.ini")
-        self.db_url = config["firebase"]["url"]
-        self.data_name = config["firebase"]["data_name"]
-        self.download_all()
-
+        # verify store user
+        self.mail = self.config["user"]["mail"]
+        self.pwd = self.config["user"]["pwd"]
+        
+        if self.mail == "" or self.pwd == "":
+            self.current = "auth_sign"
+        else:
+            print(f"\nUSUARIO: {self.mail}\n")
+            self.current = "corp_mes"
+            
+            # Read database connection info from "db.ini"
+            self.db_url = self.config["firebase"]["url"]
+            self.data_name = self.config["firebase"]["data_name"]
+            print(f"deprecated:{self.db_url}\n{self.data_name}")
+            
+            self.db = FireBase(self.config)
+            # self.download_all()
+            # https://www.youtube.com/watch?v=LaGYxQWYmmc&t=697s
+            # https://www.youtube.com/watch?v=zGGq3kBedR8
+    # authentication methods (Screens: 'auth_sign' & 'auth_regist')
+    def sign_in(self):
+        print("sign_in:", self.user_mail, self.user_pwd)
+    
+    def registr(self):
+        print("sign_in:", self.mail_r, self.pwd_r1, self.pwd_r2)
+        
+        if self.pwd_r1 == self.pwd_r2:
+            self.config["user"]["mail"] = self.mail_r
+            self.config["user"]["pwd"] = self.pwd_r1
+            self.config.write()
+        else:
+            print("CONFIRMACIÓN DE CONTRASEÑA NO COINCIDEN")
+    
     # Screen: 'corp_mes' methods        ####str(datetime.now(timezone.utc))
     def save_mes(self):
         '''Send to database using `request.post` method.
@@ -147,7 +298,7 @@ class ScManag(MDScreenManager):
             print(res)            
         
     def download_all(self):
-        '''Verificar'''
+        '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
         res2 = requests.get(url=self.db_url+"medidasxfecha/.json")
         res_json = res2.json()
         for k in res_json.keys():
@@ -156,8 +307,7 @@ class ScManag(MDScreenManager):
             
     def send_note(self):
         '''
-        Barra inferior emergente para recordar al usuario las coordenadas 
-        y hora de descarga
+        Aviso emergente de envío de datos.
         '''
         print(self.app.wresize["warg_font_s"])
         MDSnackbar(
@@ -185,21 +335,23 @@ class MedidasApp(MDApp):
         super().__init__(**kwargs)
         
         # valores relativos
-        self.wresize["bar_fsize"] = str(int(Window.size[1]/15))
-        self.wresize["input_font_s"] = str(int(Window.size[1]/15))
-        self.wresize["warg_font_s"] = str(int(Window.size[1]/30))
+        self.on_resize()
         Window.bind(on_resize=self.on_resize)
 
         # colores (rgb 0-1)
         self.COLS = {
             "purple": (.611764705882353, 
-            .15294117647058825, .6901960784313725)
+            .15294117647058825, .6901960784313725),
+            "elect_yell": (1, 0.98823529411, 0)
         }
             
     def on_resize(self, *args):
         '''Al cambiar dimensiones de ventana'''
         self.wresize["bar_fsize"] = str(int(Window.size[1]/15))
-        print(self.wresize["bar_fsize"])
+        self.wresize["input_font_s"] = str(int(Window.size[1]/15))
+        self.wresize["warg_font_s"] = str(int(Window.size[1]/30))
+        self.wresize["titl_font_s"] = str(int(Window.size[1]/25))
+        # print(self.wresize["bar_fsize"])
     
     def warning(self):
         '''POST error warning.'''
