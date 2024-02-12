@@ -200,13 +200,31 @@ class FireBase:
                 "appId": db_confg["appId"],
                 "measurementId": db_confg["measurementId"],
                 }
-        
         try:
-            conn = pyrebase.initialize_app(conf)
+            self.conn = pyrebase.initialize_app(conf)
             print("`initialize_app`: > WORK")
         except:
             print("`initialize_app`: X FAIL")
         
+    def db(self):
+        '''Returns Firebase `Database` object'''
+        try:
+            db = self.conn.database()
+            print("`database`: > WORK")
+            return db
+        except:
+            print("`database`: X FAIL")
+            return None
+    def auth(self):
+        '''Returns Firebase `auth` object 
+        (user authentication methods)'''
+        try:
+            auth = self.conn.auth()
+            print("`auth`: > WORK")
+            return auth
+        except:
+            print("`auth`: X FAIL")
+            return None
 
 # Kivy classes          ####     ####     ####
 class ScManag(MDScreenManager):
@@ -230,16 +248,29 @@ class ScManag(MDScreenManager):
         super().__init__(*args, **kwargs)
         self.app = MDApp.get_running_app()
         self.config = ConfigParser()
-        self.config.read("db.ini")        
+        self.config.read("db.ini")
+               
+        self.fbase = FireBase(self.config)
+        self.auth = self.fbase.auth()
+        self.db = self.fbase.db()
         
         # verify store user
+        self.user = None
         self.mail = self.config["user"]["mail"]
         self.pwd = self.config["user"]["pwd"]
         
         if self.mail == "" or self.pwd == "":
             self.current = "auth_sign"
         else:
+            self.user_mail = self.mail
+            self.user_pwd = self.pwd
             print(f"\nUSUARIO: {self.mail}\n")
+            self.sign_in()
+            # try:
+            #     self.auth.sign_in_with_email_and_password("g-abox@hotmail.com","contraseña")
+            # except:
+            #     print("NO ANDA")
+            # self.sign_in()
             self.current = "corp_mes"
             
             # Read database connection info from "db.ini"
@@ -247,21 +278,43 @@ class ScManag(MDScreenManager):
             self.data_name = self.config["firebase"]["data_name"]
             print(f"deprecated:{self.db_url}\n{self.data_name}")
             
-            self.db = FireBase(self.config)
+            # print("\n",self.user_mail,self.user_pwd,)
+            # res = self.auth.sign_in_with_email_and_password(self.user_mail,self.user_pwd)
+            # print(res)
+            # provisorio BORRAR
+            # self.current = "auth_regis"
+            
             # self.download_all()
             # https://www.youtube.com/watch?v=LaGYxQWYmmc&t=697s
             # https://www.youtube.com/watch?v=zGGq3kBedR8
+            
+            
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
         print("sign_in:", self.user_mail, self.user_pwd)
+        try:
+            self.user = self.auth.sign_in_with_email_and_password(self.user_mail, self.user_pwd)
+            print(self.user)
+            self.current = "corp_mes"
+        except:
+            print("NO fue posible loggearse en Firebase con:")
+            print("Res:",self.user)
+            print(self.user_mail, self.user_pwd)
     
     def registr(self):
-        print("sign_in:", self.mail_r, self.pwd_r1, self.pwd_r2)
-        
+        print("registr:", self.mail_r, self.pwd_r1, self.pwd_r2)
+
         if self.pwd_r1 == self.pwd_r2:
-            self.config["user"]["mail"] = self.mail_r
-            self.config["user"]["pwd"] = self.pwd_r1
-            self.config.write()
+            try:
+                r = self.auth.create_user_with_email_and_password(self.mail_r, self.pwd_r1)
+                print(r)
+                print("NUEVAS CRED:", self.mail_r, self.pwd_r1)
+                self.config["user"]["mail"] = self.mail_r
+                self.config["user"]["pwd"] = self.pwd_r1
+                
+                self.config.write()                
+            except:
+                print("NO pudo crearse usario Firebase")
         else:
             print("CONFIRMACIÓN DE CONTRASEÑA NO COINCIDEN")
     
@@ -284,18 +337,19 @@ class ScManag(MDScreenManager):
                 "dbo_mn":self.dbo_mn
                 }
             }
-
-        try:
-            res = requests.post(
-                url=self.db_url+self.data_name+"/.json", 
-                json=data
-            )
-            self.send_note()
-        except:
-            print("POST ERROR: data could not be sent")
-            self.app.warning()
-        finally:
-            print(res)            
+        results = self.db.child("medidasxfecha2").push(data, self.user['idToken'])
+        print("RESPUESTA:")
+        print(results)
+        # results = ""
+        # try:
+        #     results = self.conn.database().child("medidasxfecha").push(data, self.user['idToken'])
+        #     print(results)
+        # except:
+        #     print(results)
+        #     self.app.warning()
+        # finally:
+        #     print("RESPUESTA:")
+        #     print(results)            
         
     def download_all(self):
         '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
