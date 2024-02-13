@@ -143,7 +143,7 @@ KV = '''
                 on_press: root.save_mes()
             MDIconButton:
                 icon: "arrow-down-bold-circle"
-                pos_hint: {'right': .8, "center_y": .65}
+                pos_hint: {'right': .85, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.download_all()
         BoxLayout:
@@ -273,11 +273,6 @@ class ScManag(MDScreenManager):
             self.user_pwd = self.pwd
             print(f"\nUSUARIO: {self.mail}\n")
             self.sign_in()
-            # try:
-            #     self.auth.sign_in_with_email_and_password("g-abox@hotmail.com","contraseña")
-            # except:
-            #     print("NO ANDA")
-            # self.sign_in()
             self.current = "corp_mes"
             
             # Read database connection info from "db.ini"
@@ -347,9 +342,15 @@ class ScManag(MDScreenManager):
                 }
             }
         # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
-        results = self.db.child("pruebas_desarrollo").child(datetime.now().strftime("%d-%m-%y(%H:%M:%S)")).set(data, self.user['idToken'])
-        print("RESPUESTA:")
-        print(results)
+        ## child("pruebas_desarrollo") para probar
+        ## child("medidas_reales_pr")  para usar provisoriamente
+        try:
+            results = self.db.child("medidas_reales_pr").child(datetime.now().strftime("%d-%m-%y(%H:%M:%S)")).set(data, self.user['idToken'])
+            print("RESPUESTA:")
+            print(results)
+            self.send_note("Datos enviados")
+        except:
+            self.send_note("Error al enviar")
         # results = ""
         # try:
         #     results = self.conn.database().child("medidasxfecha").push(data, self.user['idToken'])
@@ -370,13 +371,12 @@ class ScManag(MDScreenManager):
             print("")
     
     def download_all(self):
+        self.send_note("No disponible en Android")
         res = self.db.child("pruebas_desarrollo").get(token=self.user['idToken'])
-        with open("token.txt","w") as f:
-            f.write(self.user['idToken'])
         for i in res.each():
             print(i.val())
         
-    def send_note(self):
+    def send_note(self,note:str):
         '''
         Aviso emergente de envío de datos.
         '''
@@ -384,7 +384,7 @@ class ScManag(MDScreenManager):
         MDSnackbar(
             MDLabel(
                 text=f'[size={self.app.wresize["warg_font_s"]}\
-]  Datos enviados[/size]',
+]  {note}[/size]',
                 markup=True,
                 bold=True,
                 halign= "center"
