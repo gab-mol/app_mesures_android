@@ -2,14 +2,39 @@ import requests
 import os
 import configparser
 import pandas as pd
+import pyrebase
+
 
 DIR = os.getcwd()
 config = configparser.ConfigParser()
 config.read(os.path.join(DIR, "db.ini"))
 db_url = config["firebase"]["url"]
 data_name = config["firebase"]["data_name"]
+db_confg = config["pyrebase"]
+conf = {
+        "apiKey": db_confg["apiKey"],
+        "authDomain": db_confg["authDomain"],
+        "databaseURL": db_confg["databaseURL"],
+        "projectId": db_confg["projectId"],
+        "storageBucket": db_confg["storageBucket"],
+        "messagingSenderId": db_confg["messagingSenderId"],
+        "appId": db_confg["appId"],
+        "measurementId": db_confg["measurementId"],
+        }
+try:
+    conn = pyrebase.initialize_app(conf)
+    print("`initialize_app`: > WORK")
+except:
+    print("`initialize_app`: X FAIL")
+    
+db = conn.database()
+auth = conn.auth()
+user = auth.sign_in_with_email_and_password(config["user"]["mail"], config["user"]["pwd"])
+for k in user.keys():
+    print("\n", k,"\n")
+    print(user[k],"\n")
 
-def download_all() -> pd.DataFrame:
+def download_all_request() -> pd.DataFrame:
     '''
     Descarga todo lo almacenado en la base de datos (Firebase) 
     mediante `request.get`, y lo retorna en formateado 
@@ -55,6 +80,12 @@ def download_all() -> pd.DataFrame:
     
     return tb
 
-tb = download_all()
+def download_all():
+    try:
+        data = db.child("pruebas_desarrollo").get(token=user["idToken"])
+        print(data.val())
+    except:
+        print("FALLÓ DESCARGA DE DATOS")
 
-print(tb)
+res = db.child("pruebas_desarrollo").get(token=config["user"]["idtoken"])
+print(res)
