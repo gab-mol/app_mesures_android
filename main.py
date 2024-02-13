@@ -141,6 +141,11 @@ KV = '''
                 pos_hint: {'right': .99, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.save_mes()
+            MDIconButton:
+                icon: "arrow-down-bold-circle"
+                pos_hint: {'right': .8, "center_y": .65}
+                icon_size: app.wresize["bar_fsize"]
+                on_press: root.download_all()
         BoxLayout:
             id: fields_cont
             size_hint: 1, .9
@@ -254,6 +259,8 @@ class ScManag(MDScreenManager):
         self.auth = self.fbase.auth()
         self.db = self.fbase.db()
         
+
+        
         # verify store user
         self.user = None
         self.mail = self.config["user"]["mail"]
@@ -300,7 +307,9 @@ class ScManag(MDScreenManager):
             print("NO fue posible loggearse en Firebase con:")
             print("Res:",self.user)
             print(self.user_mail, self.user_pwd)
-    
+
+        # self.download_all()
+        
     def registr(self):
         print("registr:", self.mail_r, self.pwd_r1, self.pwd_r2)
 
@@ -337,7 +346,8 @@ class ScManag(MDScreenManager):
                 "dbo_mn":self.dbo_mn
                 }
             }
-        results = self.db.child("medidasxfecha2").push(data, self.user['idToken'])
+        # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
+        results = self.db.child("pruebas_desarrollo").child(datetime.now().strftime("%d-%m-%y(%H:%M:%S)")).set(data, self.user['idToken'])
         print("RESPUESTA:")
         print(results)
         # results = ""
@@ -351,14 +361,21 @@ class ScManag(MDScreenManager):
         #     print("RESPUESTA:")
         #     print(results)            
         
-    def download_all(self):
+    def _download_all(self):
         '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
         res2 = requests.get(url=self.db_url+"medidasxfecha/.json")
         res_json = res2.json()
         for k in res_json.keys():
             print(res_json[k], type(res_json[k]))
             print("")
-            
+    
+    def download_all(self):
+        res = self.db.child("pruebas_desarrollo").get(token=self.user['idToken'])
+        with open("token.txt","w") as f:
+            f.write(self.user['idToken'])
+        for i in res.each():
+            print(i.val())
+        
     def send_note(self):
         '''
         Aviso emergente de envío de datos.
