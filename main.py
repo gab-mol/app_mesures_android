@@ -273,27 +273,12 @@ class ScManag(MDScreenManager):
             self.user_pwd = self.pwd
             print(f"\nUSUARIO: {self.mail}\n")
             self.sign_in()
-            # try:
-            #     self.auth.sign_in_with_email_and_password("g-abox@hotmail.com","contraseña")
-            # except:
-            #     print("NO ANDA")
-            # self.sign_in()
             self.current = "corp_mes"
             
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
             print(f"deprecated:{self.db_url}\n{self.data_name}")
-            
-            # print("\n",self.user_mail,self.user_pwd,)
-            # res = self.auth.sign_in_with_email_and_password(self.user_mail,self.user_pwd)
-            # print(res)
-            # provisorio BORRAR
-            # self.current = "auth_regis"
-            
-            # self.download_all()
-            # https://www.youtube.com/watch?v=LaGYxQWYmmc&t=697s
-            # https://www.youtube.com/watch?v=zGGq3kBedR8
             
             
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
@@ -349,17 +334,7 @@ class ScManag(MDScreenManager):
         # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
         results = self.db.child("pruebas_desarrollo").child(datetime.now().strftime("%d-%m-%y(%H:%M:%S)")).set(data, self.user['idToken'])
         print("RESPUESTA:")
-        print(results)
-        # results = ""
-        # try:
-        #     results = self.conn.database().child("medidasxfecha").push(data, self.user['idToken'])
-        #     print(results)
-        # except:
-        #     print(results)
-        #     self.app.warning()
-        # finally:
-        #     print("RESPUESTA:")
-        #     print(results)            
+        print(results)       
         
     def _download_all(self):
         '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
@@ -370,9 +345,7 @@ class ScManag(MDScreenManager):
             print("")
     
     def download_all(self):
-        res = self.db.child("pruebas_desarrollo").get(token=self.user['idToken'])
-        with open("token.txt","w") as f:
-            f.write(self.user['idToken'])
+        res = self.db.child("medidas_reales_pr").get(token=self.user['idToken'])
         for i in res.each():
             print(i.val())
         
