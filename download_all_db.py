@@ -21,6 +21,7 @@ conf = {
         "appId": db_confg["appId"],
         "measurementId": db_confg["measurementId"],
         }
+
 try:
     conn = pyrebase.initialize_app(conf)
     print("`initialize_app`: > WORK")
@@ -30,9 +31,13 @@ except:
 db = conn.database()
 auth = conn.auth()
 user = auth.sign_in_with_email_and_password(config["user"]["mail"], config["user"]["pwd"])
-for k in user.keys():
-    print("\n", k,"\n")
-    print(user[k],"\n")
+
+# pruebas_desarrollo OR medidas_reales_pr
+DB_DIR = "pruebas_desarrollo"
+
+# cvs file storage
+NAME_CVS = "pr_download.cvs"
+
 
 def download_all_request() -> pd.DataFrame:
     '''
@@ -63,11 +68,11 @@ def download_all_request() -> pd.DataFrame:
         
         timestamp.append(time)
         medid = res_json[k]["medidas"]
-        peso.append(pd.to_numeric(medid["peso"]))
-        dso_mx.append(pd.to_numeric(medid["dso_mx"]))
-        dso_mn.append(pd.to_numeric(medid["dso_mn"]))
-        dbo_mx.append(pd.to_numeric(medid["dbo_mx"]))
-        dbo_mn.append(pd.to_numeric(medid["dbo_mn"]))
+        peso.append(pd.to_numeric(medid["peso"].replace(",",".")))
+        dso_mx.append(pd.to_numeric(medid["dso_mx"].replace(",",".")))
+        dso_mn.append(pd.to_numeric(medid["dso_mn"].replace(",",".")))
+        dbo_mx.append(pd.to_numeric(medid["dbo_mx"].replace(",",".")))
+        dbo_mn.append(pd.to_numeric(medid["dbo_mn"].replace(",",".")))
         
     tb = pd.DataFrame({
         "fechaUTC":timestamp,
@@ -81,11 +86,47 @@ def download_all_request() -> pd.DataFrame:
     return tb
 
 def download_all():
+    response = None
     try:
-        data = db.child("pruebas_desarrollo").get(token=user["idToken"])
-        print(data.val())
+        response = db.child(DB_DIR).get(token=user["idToken"])
     except:
         print("FALLÓ DESCARGA DE DATOS")
+    
+    timestamp = []
+    peso = []
+    dso_mx = []
+    dso_mn = []
+    dbo_mx = []
+    dbo_mn = []
+    
+    for d in response.each():
 
-res = db.child("pruebas_desarrollo").get(token=config["user"]["idtoken"])
-print(res)
+        regis = dict(d.val())
+
+        # timestamp
+        time_str = regis["timestamp"]
+        time = pd.to_datetime(time_str.replace("_", " "))
+        time = time - pd.Timedelta(hours=3)
+        timestamp.append(time)
+
+        # actual mesures
+        medid = regis["medidas"]
+        peso.append(pd.to_numeric(medid["peso"].replace(",",".")))
+        dso_mx.append(pd.to_numeric(medid["dso_mx"].replace(",",".")))
+        dso_mn.append(pd.to_numeric(medid["dso_mn"].replace(",",".")))
+        dbo_mx.append(pd.to_numeric(medid["dbo_mx"].replace(",",".")))
+        dbo_mn.append(pd.to_numeric(medid["dbo_mn"].replace(",",".")))
+            
+    tb = pd.DataFrame({
+        "fechaUTC":timestamp,
+        "peso":peso,
+        "dso_mx":dso_mx,
+        "dso_mn":dso_mn,
+        "dbo_mx":dbo_mx,
+        "dbo_mn":dbo_mn
+    })
+    print(tb)
+    return tb
+
+tb = download_all()
+tb.to_csv(NAME_CVS, ";", index=False)
