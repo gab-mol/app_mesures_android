@@ -331,11 +331,30 @@ class ScManag(MDScreenManager):
                 "dbo_mn":self.dbo_mn
                 }
             }
-        # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
-        results = self.db.child("pruebas_desarrollo").child(datetime.now().strftime("%d-%m-%y(%H:%M:%S)")).set(data, self.user['idToken'])
-        print("RESPUESTA:")
-        print(results)       
         
+        def alta(*args):
+            '''Send data to Firebase DB.'''
+            try:
+                results = self.db.child(
+                    "pruebas_desarrollo"
+                    ).child(datetime.now().strftime(
+                        "%d-%m-%y(%H:%M:%S)")
+                        ).set(data, self.user['idToken'])
+                self.show_note("Datos enviados.")
+                print("RESPUESTA:")
+                print(results)       
+            except:
+                self.show_note("No se pudo enviar.")
+            self.app.close_warng()
+
+        # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
+        self.app.warning(
+            text="¿Enviar medidas?",
+            ok_txt="Enviar",
+            dism_txt="Cancelar",
+            met1=alta
+        )
+
     def _download_all(self):
         '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
         res2 = requests.get(url=self.db_url+"medidasxfecha/.json")
@@ -349,7 +368,7 @@ class ScManag(MDScreenManager):
         for i in res.each():
             print(i.val())
         
-    def send_note(self):
+    def show_note(self,note:str):
         '''
         Aviso emergente de envío de datos.
         '''
@@ -357,7 +376,7 @@ class ScManag(MDScreenManager):
         MDSnackbar(
             MDLabel(
                 text=f'[size={self.app.wresize["warg_font_s"]}\
-]  Datos enviados[/size]',
+]  {note}[/size]',
                 markup=True,
                 bold=True,
                 halign= "center"
@@ -397,22 +416,32 @@ class MedidasApp(MDApp):
         self.wresize["titl_font_s"] = str(int(Window.size[1]/25))
         # print(self.wresize["bar_fsize"])
     
-    def warning(self):
-        '''POST error warning.'''
+    def warning(self, text:str, ok_txt:str, 
+            dism_txt:str, met1, met2=None):
+        '''Popup dialog with user.'''
+        if met2:
+            met2= self.close_warng
+
         if not self.w_emg:
             self.w_emg = MDDialog(
-                text="NO SE PUDO ENVIAR\n (verificar conexión a internet)",
+                text=text,
                 buttons=[
                     MDFlatButton(
-                        text="OK",
+                        text=ok_txt,
+                        theme_text_color="Custom",
+                        text_color=self.theme_cls.primary_color,
+                        on_press= met1
+                    ),
+                    MDFlatButton(
+                        text=dism_txt,
                         theme_text_color="Custom",
                         text_color=self.theme_cls.primary_color,
                         on_press= self.close_warng
-                    ),
+                    )             
                 ]
             )
             self.w_emg.open()
-            
+    
     def close_warng(self, *args):
         if self.w_emg:
             self.w_emg.dismiss(force=True)
