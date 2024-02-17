@@ -280,16 +280,6 @@ class ScManag(MDScreenManager):
             self.data_name = self.config["firebase"]["data_name"]
             print(f"deprecated:{self.db_url}\n{self.data_name}")
             
-            # print("\n",self.user_mail,self.user_pwd,)
-            # res = self.auth.sign_in_with_email_and_password(self.user_mail,self.user_pwd)
-            # print(res)
-            # provisorio BORRAR
-            # self.current = "auth_regis"
-            
-            # self.download_all()
-            # https://www.youtube.com/watch?v=LaGYxQWYmmc&t=697s
-            # https://www.youtube.com/watch?v=zGGq3kBedR8
-            
             
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
@@ -341,27 +331,30 @@ class ScManag(MDScreenManager):
                 "dbo_mn":self.dbo_mn
                 }
             }
-        # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
-        ## child("pruebas_desarrollo") para probar
-        ## child("medidas_reales_pr")  para usar provisoriamente
-        try:
-            results = self.db.child("medidas_reales_pr").child(datetime.now().strftime("%d-%m-%y(%H:%M:%S)")).set(data, self.user['idToken'])
-            print("RESPUESTA:")
-            print(results)
-            self.send_note("Datos enviados")
-        except:
-            self.send_note("Error al enviar")
-        # results = ""
-        # try:
-        #     results = self.conn.database().child("medidasxfecha").push(data, self.user['idToken'])
-        #     print(results)
-        # except:
-        #     print(results)
-        #     self.app.warning()
-        # finally:
-        #     print("RESPUESTA:")
-        #     print(results)            
         
+        def alta(*args):
+            '''Send data to Firebase DB.'''
+            try:
+                results = self.db.child(
+                    "pruebas_desarrollo"
+                    ).child(datetime.now().strftime(
+                        "%d-%m-%y(%H:%M:%S)")
+                        ).set(data, self.user['idToken'])
+                self.show_note("Datos enviados.")
+                print("RESPUESTA:")
+                print(results)       
+            except:
+                self.show_note("No se pudo enviar.")
+            self.app.close_warng()
+
+        # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
+        self.app.warning(
+            text="¿Enviar medidas?",
+            ok_txt="Enviar",
+            dism_txt="Cancelar",
+            met1=alta
+        )
+
     def _download_all(self):
         '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
         res2 = requests.get(url=self.db_url+"medidasxfecha/.json")
@@ -371,12 +364,11 @@ class ScManag(MDScreenManager):
             print("")
     
     def download_all(self):
-        self.send_note("No disponible en Android")
-        res = self.db.child("pruebas_desarrollo").get(token=self.user['idToken'])
+        res = self.db.child("medidas_reales_pr").get(token=self.user['idToken'])
         for i in res.each():
             print(i.val())
         
-    def send_note(self,note:str):
+    def show_note(self,note:str):
         '''
         Aviso emergente de envío de datos.
         '''
@@ -424,22 +416,32 @@ class MedidasApp(MDApp):
         self.wresize["titl_font_s"] = str(int(Window.size[1]/25))
         # print(self.wresize["bar_fsize"])
     
-    def warning(self):
-        '''POST error warning.'''
+    def warning(self, text:str, ok_txt:str, 
+            dism_txt:str, met1, met2=None):
+        '''Popup dialog with user.'''
+        if met2:
+            met2= self.close_warng
+
         if not self.w_emg:
             self.w_emg = MDDialog(
-                text="NO SE PUDO ENVIAR\n (verificar conexión a internet)",
+                text=text,
                 buttons=[
                     MDFlatButton(
-                        text="OK",
+                        text=ok_txt,
+                        theme_text_color="Custom",
+                        text_color=self.theme_cls.primary_color,
+                        on_press= met1
+                    ),
+                    MDFlatButton(
+                        text=dism_txt,
                         theme_text_color="Custom",
                         text_color=self.theme_cls.primary_color,
                         on_press= self.close_warng
-                    ),
+                    )             
                 ]
             )
             self.w_emg.open()
-            
+    
     def close_warng(self, *args):
         if self.w_emg:
             self.w_emg.dismiss(force=True)
