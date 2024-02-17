@@ -75,7 +75,7 @@ KV = '''
                 text: "Entrar"
                 on_release: app.root.sign_in()
             MDFlatButton:
-                pos_hint: {'center_x': .2,'center_y': .3}
+                pos_hint: {'center_x': .27,'center_y': .3}
                 font_size: app.wresize["titl_font_s"]
                 text: "[color=#dede35]Registrarse.[/color]"
                 on_press:
@@ -120,7 +120,7 @@ KV = '''
                 text: "Confirmar"
                 on_release: app.root.registr()
             MDFlatButton:
-                pos_hint: {'center_x': .32,'center_y': .12}
+                pos_hint: {'center_x': .37,'center_y': .12}
                 font_size: app.wresize["titl_font_s"]
                 text: "[color=#dede35]Volver a Ingresar.[/color]"
                 on_press: 
@@ -142,10 +142,10 @@ KV = '''
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.save_mes()
             MDIconButton:
-                icon: "arrow-down-bold-circle"
+                icon: "test-tube"
                 pos_hint: {'right': .85, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
-                on_press: root.download_all()
+                on_press: root.test_db()
         BoxLayout:
             id: fields_cont
             size_hint: 1, .9
@@ -249,19 +249,21 @@ class ScManag(MDScreenManager):
     dbo_mx = StringProperty()
     dbo_mn = StringProperty()
     
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.app = MDApp.get_running_app()
+        # config file
         self.config = ConfigParser()
         self.config.read("db.ini")
-               
+        
+        # Firebase init
         self.fbase = FireBase(self.config)
         self.auth = self.fbase.auth()
         self.db = self.fbase.db()
-        
-
-        
-        # verify store user
+        ## DB directory
+        self.db_node_target = self.config["pyrebase"]["db_node"]
+        ## verify store user
         self.user = None
         self.mail = self.config["user"]["mail"]
         self.pwd = self.config["user"]["pwd"]
@@ -278,9 +280,8 @@ class ScManag(MDScreenManager):
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
-            print(f"deprecated:{self.db_url}\n{self.data_name}")
-            
-            
+            # print(f"deprecated:{self.db_url}\n{self.data_name}")
+                        
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
         print("sign_in:", self.user_mail, self.user_pwd)
@@ -292,8 +293,11 @@ class ScManag(MDScreenManager):
             print("NO fue posible loggearse en Firebase con:")
             print("Res:",self.user)
             print(self.user_mail, self.user_pwd)
-
-        # self.download_all()
+            self.show_note("Error al iniciar sesión")
+        if self.user:
+            self.config["user"]["mail"] = self.user_mail
+            self.config["user"]["pwd"] = self.user_pwd
+            self.config.write()
         
     def registr(self):
         print("registr:", self.mail_r, self.pwd_r1, self.pwd_r2)
@@ -336,7 +340,7 @@ class ScManag(MDScreenManager):
             '''Send data to Firebase DB.'''
             try:
                 results = self.db.child(
-                    "pruebas_desarrollo"
+                    self.db_node_target
                     ).child(datetime.now().strftime(
                         "%d-%m-%y(%H:%M:%S)")
                         ).set(data, self.user['idToken'])
@@ -354,23 +358,10 @@ class ScManag(MDScreenManager):
             dism_txt="Cancelar",
             met1=alta
         )
-
-    def _download_all(self):
-        '''Descarga toda la carpeta `medidasxfecha` de la base de datos.'''
-        res2 = requests.get(url=self.db_url+"medidasxfecha/.json")
-        res_json = res2.json()
-        for k in res_json.keys():
-            print(res_json[k], type(res_json[k]))
-            print("")
-    
-    def download_all(self):
-        res = self.db.child("medidas_reales_pr").get(token=self.user['idToken'])
-        for i in res.each():
-            print(i.val())
         
-    def show_note(self,note:str):
+    def show_note(self,note:str, durat=3):
         '''
-        Aviso emergente de envío de datos.
+        Float snackbar based popup.
         '''
         print(self.app.wresize["warg_font_s"])
         MDSnackbar(
@@ -381,12 +372,26 @@ class ScManag(MDScreenManager):
                 bold=True,
                 halign= "center"
             ),
-            duration=3,
+            duration=durat,
             y=dp(24),
             pos_hint={"center_x": 0.5, "top":.8},
             size_hint_x=0.8,
             radius=[20,20,20,20]           
         ).open()
+        
+        
+    def test_db(self):
+        '''Switch between defoult and test nodes of Firebase DB.
+        (for development purposes only)'''
+        cfg = self.config["pyrebase"]
+        print(self.db_node_target, "to:")
+        if self.db_node_target == cfg["db_node"]:
+            self.db_node_target = cfg["db_node_pr"]
+        else:
+            self.db_node_target = cfg["db_node"]
+        print(self.db_node_target)
+        self.show_note(f"A: {self.db_node_target}", durat=.2)
+        
         
 class MedidasApp(MDApp):
     
