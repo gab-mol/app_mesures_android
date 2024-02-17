@@ -132,7 +132,7 @@ KV = '''
             size_hint: 1, .13
             pos_hint: {'top': 1}
             MDTopAppBar:
-                title: "[size="+app.wresize["bar_fsize"]+"]  Medidas[/size]"
+                title: "[size="+app.wresize["bar_fsize"]+"]Medidas[/size]"
                 anchor_title: "left"
                 # right_action_items: [["content-save", lambda x: root.save_mes()]]
                 pos_hint: {'top': 1}
@@ -143,7 +143,7 @@ KV = '''
                 on_press: root.save_mes()
             MDIconButton:
                 icon: "test-tube"
-                pos_hint: {'right': .85, "center_y": .65}
+                pos_hint: {'right': .83, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.test_db()
         BoxLayout:
@@ -155,42 +155,6 @@ KV = '''
                 MDList:
                     id: input_fields
                     spacing: 10
-                # MDTextField:
-                #     id: peso_tf
-                #     size_hint: 1, .08
-                #     hint_text: "Peso (g)"
-                #     mode: "rectangle"
-                #     font_size: app.wresize["bar_fsize"]
-                #     line_color_normal: app.theme_cls.accent_color
-                # MDTextField:
-                #     id: so_mx_tf
-                #     size_hint: 1, .08
-                #     mode: "rectangle"
-                #     font_size: app.wresize["bar_fsize"]
-                #     hint_text: "Diámetro SO max (cm)"
-                #     line_color_normal: app.theme_cls.accent_color
-                # MDTextField:
-                #     id: so_mn_tf
-                #     size_hint: 1, .08
-                #     mode: "rectangle"
-                #     font_size: app.wresize["bar_fsize"]
-                #     hint_text: "Diámetro SO max (cm)"
-                #     line_color_normal: app.theme_cls.accent_color
-                # MDTextField:
-                #     id: bo_mx_tf
-                #     size_hint: 1, .08
-                #     mode: "rectangle"
-                #     font_size: app.wresize["bar_fsize"]
-                #     hint_text: "Diámetro BO max (cm)"
-                #     line_color_normal: app.theme_cls.accent_color
-                # MDTextField:
-                #     id: bo_mn_tf
-                #     size_hint: 1, .08
-                #     mode: "rectangle"
-                #     font_size: app.wresize["bar_fsize"]
-                #     hint_text: "Diámetro BO max (cm)"
-                #     markup: True
-                #     line_color_normal: app.theme_cls.accent_color
 '''
 
 Builder.load_string(KV)
@@ -374,10 +338,10 @@ class ScManag(MDScreenManager):
                 "dbo_mn":data_list[4]
                 }
             }
-        
+        print("\ndata",data)
         def alta(*args):
             '''Send data to Firebase DB.'''
-            print("mandar:", self.db_node_target)
+            # `self.user['idToken']` mandatory for user verification
             try:
                 results = self.db.child(
                     self.db_node_target
@@ -391,7 +355,7 @@ class ScManag(MDScreenManager):
                 self.show_note("No se pudo enviar.")
             self.app.close_warng()
 
-        # NOTA: importante pasar `self.user['idToken']` es el token de usuario que verifica que está registrado
+        self.app.close_warng()
         self.app.warning(
             text="¿Enviar medidas?",
             ok_txt="Enviar",
@@ -418,7 +382,6 @@ class ScManag(MDScreenManager):
             size_hint_x=0.8,
             radius=[20,20,20,20]           
         ).open()
-        
         
     def test_db(self):
         '''Switch between defoult and test nodes of Firebase DB.
@@ -467,25 +430,24 @@ class MedidasApp(MDApp):
         if met2:
             met2= self.close_warng
 
-        if not self.w_emg:
-            self.w_emg = MDDialog(
-                text=text,
-                buttons=[
-                    MDFlatButton(
-                        text=ok_txt,
-                        theme_text_color="Custom",
-                        text_color=self.theme_cls.primary_color,
-                        on_press= met1
-                    ),
-                    MDFlatButton(
-                        text=dism_txt,
-                        theme_text_color="Custom",
-                        text_color=self.theme_cls.primary_color,
-                        on_press= self.close_warng
-                    )             
-                ]
-            )
-            self.w_emg.open()
+        self.w_emg = MDDialog(
+            text=text,
+            buttons=[
+                MDFlatButton(
+                    text=ok_txt,
+                    theme_text_color="Custom",
+                    text_color=self.theme_cls.primary_color,
+                    on_press= met1
+                ),
+                MDFlatButton(
+                    text=dism_txt,
+                    theme_text_color="Custom",
+                    text_color=self.theme_cls.primary_color,
+                    on_press= self.close_warng
+                )             
+            ]
+        )
+        self.w_emg.open()
     
     def close_warng(self, *args):
         if self.w_emg:
