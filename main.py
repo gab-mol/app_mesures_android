@@ -35,17 +35,10 @@ KV = '''
     mail_r: mail_r.text
     pwd_r1: pwd_r1.text
     pwd_r2: pwd_r2.text
-
-    # peso: peso_tf.text
-    # dso_mx: so_mx_tf.text
-    # dso_mn: so_mn_tf.text
-    # dbo_mx: bo_mx_tf.text
-    # dbo_mn: bo_mn_tf.text
     
     Screen:
         name: "auth_sign"
         FloatLayout:
-            # padding: 15
             MDLabel:
                 pos_hint: {'center_x': 0.8,'center_y': .9}
                 font_size: app.wresize["input_font_s"]
@@ -151,7 +144,6 @@ KV = '''
             orientation: 'vertical'
             padding: 15
             ScrollView:
-                
                 MDList:
                     id: input_fields
                     spacing: 10
@@ -215,14 +207,6 @@ class ScManag(MDScreenManager):
     mail_r = StringProperty()
     pwd_r1 = StringProperty()
     pwd_r2 = StringProperty()
-    
-    # 'Mesures screen' propertys
-    # peso = StringProperty()
-    # dso_mx = StringProperty()
-    # dso_mn = StringProperty()
-    # dbo_mx = StringProperty()
-    # dbo_mn = StringProperty()
-    
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -254,20 +238,15 @@ class ScManag(MDScreenManager):
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
-            # print(f"deprecated:{self.db_url}\n{self.data_name}")
         
         # input list declaration
-        for  ids, text in zip(
-            ["peso_tf","so_mx_tf","so_mn_tf","bo_mx_tf","bo_mn_tf"],
-            ["Peso (g)",
+        for  text in ["Peso (g)",
              "Diámetro SO max (cm)",
              "Diámetro SO max (cm)",
              "Diámetro BO max (cm)",
-             "Diámetro BO max (cm)"]
-            ):
+             "Diámetro BO max (cm)"]:
             self.ids.input_fields.add_widget(
                 MDTextField(
-                    id=ids,
                     size_hint=(.7, .08),
                     mode="rectangle",
                     font_size=self.app.wresize["bar_fsize"],
@@ -315,7 +294,7 @@ class ScManag(MDScreenManager):
         else:
             print("CONFIRMACIÓN DE CONTRASEÑA NO COINCIDEN")
     
-    # Screen: 'corp_mes' methods        ####str(datetime.now(timezone.utc))
+    # Screen: 'corp_mes' methods        ####
     def save_mes(self):
         '''Send to database using `request.post` method.
         A timestamp is included along with the data 
@@ -338,7 +317,7 @@ class ScManag(MDScreenManager):
                 "dbo_mn":data_list[4]
                 }
             }
-        print("\ndata",data)
+        
         def alta(*args):
             '''Send data to Firebase DB.'''
             # `self.user['idToken']` mandatory for user verification
