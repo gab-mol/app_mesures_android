@@ -17,11 +17,11 @@ from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.label import MDLabel
+from kivymd.uix.textfield import MDTextField
 from kivy.metrics import dp
 from kivy.config import ConfigParser
 # other modules
 from datetime import datetime, timezone
-import requests
 import pyrebase
 
 # KV code         ####     ####     ####
@@ -36,11 +36,11 @@ KV = '''
     pwd_r1: pwd_r1.text
     pwd_r2: pwd_r2.text
 
-    peso: peso_tf.text
-    dso_mx: so_mx_tf.text
-    dso_mn: so_mn_tf.text
-    dbo_mx: bo_mx_tf.text
-    dbo_mn: bo_mn_tf.text
+    # peso: peso_tf.text
+    # dso_mx: so_mx_tf.text
+    # dso_mn: so_mn_tf.text
+    # dbo_mx: bo_mx_tf.text
+    # dbo_mn: bo_mn_tf.text
     
     Screen:
         name: "auth_sign"
@@ -147,46 +147,50 @@ KV = '''
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.test_db()
         BoxLayout:
-            id: fields_cont
             size_hint: 1, .9
             orientation: 'vertical'
             padding: 15
-            MDTextField:
-                id: peso_tf
-                size_hint: 1, .08
-                hint_text: "Peso (g)"
-                mode: "rectangle"
-                font_size: app.wresize["bar_fsize"]
-                line_color_normal: app.theme_cls.accent_color
-            MDTextField:
-                id: so_mx_tf
-                size_hint: 1, .08
-                mode: "rectangle"
-                font_size: app.wresize["bar_fsize"]
-                hint_text: "Diámetro SO max (cm)"
-                line_color_normal: app.theme_cls.accent_color
-            MDTextField:
-                id: so_mn_tf
-                size_hint: 1, .08
-                mode: "rectangle"
-                font_size: app.wresize["bar_fsize"]
-                hint_text: "Diámetro SO max (cm)"
-                line_color_normal: app.theme_cls.accent_color
-            MDTextField:
-                id: bo_mx_tf
-                size_hint: 1, .08
-                mode: "rectangle"
-                font_size: app.wresize["bar_fsize"]
-                hint_text: "Diámetro BO max (cm)"
-                line_color_normal: app.theme_cls.accent_color
-            MDTextField:
-                id: bo_mn_tf
-                size_hint: 1, .08
-                mode: "rectangle"
-                font_size: app.wresize["bar_fsize"]
-                hint_text: "Diámetro BO max (cm)"
-                markup: True
-                line_color_normal: app.theme_cls.accent_color
+            ScrollView:
+                
+                MDList:
+                    id: input_fields
+                    spacing: 10
+                # MDTextField:
+                #     id: peso_tf
+                #     size_hint: 1, .08
+                #     hint_text: "Peso (g)"
+                #     mode: "rectangle"
+                #     font_size: app.wresize["bar_fsize"]
+                #     line_color_normal: app.theme_cls.accent_color
+                # MDTextField:
+                #     id: so_mx_tf
+                #     size_hint: 1, .08
+                #     mode: "rectangle"
+                #     font_size: app.wresize["bar_fsize"]
+                #     hint_text: "Diámetro SO max (cm)"
+                #     line_color_normal: app.theme_cls.accent_color
+                # MDTextField:
+                #     id: so_mn_tf
+                #     size_hint: 1, .08
+                #     mode: "rectangle"
+                #     font_size: app.wresize["bar_fsize"]
+                #     hint_text: "Diámetro SO max (cm)"
+                #     line_color_normal: app.theme_cls.accent_color
+                # MDTextField:
+                #     id: bo_mx_tf
+                #     size_hint: 1, .08
+                #     mode: "rectangle"
+                #     font_size: app.wresize["bar_fsize"]
+                #     hint_text: "Diámetro BO max (cm)"
+                #     line_color_normal: app.theme_cls.accent_color
+                # MDTextField:
+                #     id: bo_mn_tf
+                #     size_hint: 1, .08
+                #     mode: "rectangle"
+                #     font_size: app.wresize["bar_fsize"]
+                #     hint_text: "Diámetro BO max (cm)"
+                #     markup: True
+                #     line_color_normal: app.theme_cls.accent_color
 '''
 
 Builder.load_string(KV)
@@ -232,6 +236,12 @@ class FireBase:
             return None
 
 # Kivy classes          ####     ####     ####
+class Input(MDTextField):
+    id = StringProperty()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class ScManag(MDScreenManager):
     
     # autentication propertys
@@ -243,11 +253,11 @@ class ScManag(MDScreenManager):
     pwd_r2 = StringProperty()
     
     # 'Mesures screen' propertys
-    peso = StringProperty()
-    dso_mx = StringProperty()
-    dso_mn = StringProperty()
-    dbo_mx = StringProperty()
-    dbo_mn = StringProperty()
+    # peso = StringProperty()
+    # dso_mx = StringProperty()
+    # dso_mn = StringProperty()
+    # dbo_mx = StringProperty()
+    # dbo_mn = StringProperty()
     
 
     def __init__(self, *args, **kwargs):
@@ -281,7 +291,32 @@ class ScManag(MDScreenManager):
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
             # print(f"deprecated:{self.db_url}\n{self.data_name}")
-                        
+        
+        # input list declaration
+        for  ids, text in zip(
+            ["peso_tf","so_mx_tf","so_mn_tf","bo_mx_tf","bo_mn_tf"],
+            ["Peso (g)",
+             "Diámetro SO max (cm)",
+             "Diámetro SO max (cm)",
+             "Diámetro BO max (cm)",
+             "Diámetro BO max (cm)"]
+            ):
+            self.ids.input_fields.add_widget(
+                MDTextField(
+                    id=ids,
+                    size_hint=(.7, .08),
+                    mode="rectangle",
+                    font_size=self.app.wresize["bar_fsize"],
+                    hint_text=text,
+                    line_color_normal=self.app.theme_cls.accent_color
+                )
+            )
+        # Trick to allow user to adjust visibility of input boxes in phones
+        # (because of android onscreen keyboard)
+        for i in range(50):
+            self.ids.input_fields.add_widget(
+                MDLabel(size_hint=(.7, .08))
+            )
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
         print("sign_in:", self.user_mail, self.user_pwd)
@@ -322,22 +357,27 @@ class ScManag(MDScreenManager):
         A timestamp is included along with the data 
         (`datetime` module. UTC).
         '''
-        print("prueba:\n",self.peso, self.dso_mx, self.dso_mn,
-            self.dbo_mx, self.dbo_mn)
+        # Retive text from ScrollView's MDTextField childrens
+        data_list = []
+        for child in reversed(self.ids.input_fields.children):
+            if isinstance(child, MDTextField):
+                data_list.append(child.text)
+        print("DATA LIST:",data_list)
         timestamp = str(datetime.now(timezone.utc)).replace(" ", "_")
         data ={
             "timestamp":timestamp,
             "medidas":{
-                "peso":self.peso,
-                "dso_mx":self.dso_mx,
-                "dso_mn":self.dso_mn,
-                "dbo_mx":self.dbo_mx,
-                "dbo_mn":self.dbo_mn
+                "peso":data_list[0],
+                "dso_mx":data_list[1],
+                "dso_mn":data_list[2],
+                "dbo_mx":data_list[3],
+                "dbo_mn":data_list[4]
                 }
             }
         
         def alta(*args):
             '''Send data to Firebase DB.'''
+            print("mandar:", self.db_node_target)
             try:
                 results = self.db.child(
                     self.db_node_target
@@ -454,7 +494,7 @@ class MedidasApp(MDApp):
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Purple"
-
+        
         return ScManag()
 
 
