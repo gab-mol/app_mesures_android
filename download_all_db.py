@@ -9,8 +9,8 @@ import sqlite3
 
 DIR = os.getcwd()
 # pruebas_desarrollo OR medidas_reales_pr
-DB_DIR = "medidas_reales_pr"
-# cvs file storage
+# DB_DIR = "medidas_reales_pr"
+# cvs file storage (tests)
 NAME_CVS = "pr_download2.cvs"
 
 
@@ -47,11 +47,12 @@ class FireDbConn:
 
 class Extrac:
 
-    def __init__(self, db):
+    def __init__(self, db, user):
         self.db = db
-    
+        self.user = user
+
     # deprecated
-    def download_all_request() -> pd.DataFrame:
+    def download_all_request(db_url,data_name) -> pd.DataFrame:
         '''
         Descarga todo lo almacenado en la base de datos (Firebase) 
         mediante `request.get`, y lo retorna en formateado 
@@ -97,10 +98,11 @@ class Extrac:
         
         return tb
 
-    def download_all(self, time_str=False):
+    def download_all(self, DB_DIR, time_str=False):
+        '''Download all content from `DB_DIR` directory of the DB.'''
         response = None
         try:
-            response = self.db.child(DB_DIR).get(token=user["idToken"])
+            response = self.db.child(DB_DIR).get(token=self.user["idToken"])
         except:
             print("FALLÓ DESCARGA DE DATOS")
         
@@ -150,6 +152,7 @@ class Extrac:
 
 
 class LocStor:
+    '''Local storage of App records.'''
     def __init__(self, confg:ConfigParser) -> None:
         confg = confg["sql"]
         db_path = confg["db_path"]
@@ -159,19 +162,28 @@ class LocStor:
         
         # with self.conn.cursor() as cursor:
         cursor = self.conn.cursor()
-        comando = f'''CREATE TABLE IF NOT EXISTS {self.name_tb}(\
+        main_tb = f'''CREATE TABLE IF NOT EXISTS {self.name_tb}(\
             timestamp TEXT PRIMARY KEY, \
             peso real, \
             dso_mx real, \
             dso_mn real, \
             dbo_mx real, \
             dbo_mn real)'''
-        cursor.execute(comando)
+
+        cursor.execute(main_tb)
+        stage_tb = f'''CREATE TABLE IF NOT EXISTS stage(\
+            timestamp TEXT PRIMARY KEY, \
+            peso real, \
+            dso_mx real, \
+            dso_mn real, \
+            dbo_mx real, \
+            dbo_mn real)'''
+        cursor.execute(stage_tb)
         self.conn.commit()
 
-    def alta(self,data:list):
+    def alta(self,data:list, tb_name:str):
         querry = f'''
-        INSERT INTO {self.name_tb}(timestamp, peso, dso_mx, dso_mn, dbo_mx, 
+        INSERT INTO {tb_name}(timestamp, peso, dso_mx, dso_mn, dbo_mx, 
         dbo_mn) 
         VALUES(?, ?, ?, ?, ?, ?)
         '''
@@ -181,9 +193,52 @@ class LocStor:
             cursor = self.conn.cursor()
             cursor.execute(querry, data)
             self.conn.commit()
-            print(f"\nGuardado localmente: \n{data}\n")
+            print(f"\nRegistro guardado en tabla: {tb_name}\n")
         except:
             print("ERROR EN ALTA A: sqlite local")
+
+    def scd1(self,df:pd.DataFrame):
+        '''Alta Querry with SCD type 1 strategy.'''
+
+        # staging
+        for i in range(len(df)):
+            data = tb.iloc[i].to_list()
+            sql_local.alta(data, "stage")
+
+        # Load to main table
+        q = f'''
+            INSERT OR IGNORE INTO {self.name_tb}(timestamp, peso, dso_mx, dso_mn, dbo_mx, dbo_mn)
+            SELECT stage.timestamp, stage.peso, stage.dso_mx, stage.dso_mn, stage.dbo_mx, 
+            stage.dbo_mn 
+            FROM stage 
+            LEFT OUTER JOIN {self.name_tb} 
+            ON {self.name_tb}.timestamp = stage.timestamp;
+        '''
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(q)
+            self.conn.commit()
+            print(f"\nLEFT OUTER JOIN: stage-{self.name_tb}")
+        except:
+            print("ERROR en querry, o no hay registros nuevos que agregar\n\
+(condición del join no se cumple)")
+        finally:
+            print("Cleaning stage tb...")
+            self.stage_clean()
+        
+    def stage_clean(self):
+        '''REMOVE ALL RECORDS FROM stage TABLE.'''
+        truncate = '''
+        DELETE FROM stage;
+        '''
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(truncate)
+            self.conn.commit()
+            print("\ntb stage limpia.")
+        except:
+            print("ERROR en querry.")
+
 
 if __name__ == "__main__":
     confg = ConfigParser()
@@ -192,13 +247,9 @@ if __name__ == "__main__":
     ini_ext = FireDbConn(confg)
     db, auth, user = ini_ext.db_utils()
 
-    extrac = Extrac(db)
-    tb = Extrac(db).download_all(time_str=True)
+    extrac = Extrac(db,user)
+    tb = extrac.download_all(confg["pyrebase"]["dir_name"],
+        time_str=True)
 
     sql_local = LocStor(confg)
-
-    # !!! FALTA SCD
-    for i in range(len(tb)):
-        data = tb.iloc[i].to_list()
-
-        sql_local.alta(data)
+    sql_local.scd1(tb)
