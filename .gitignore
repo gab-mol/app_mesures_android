@@ -2,6 +2,9 @@ __pycache__
 bin
 build
 dists
+dist
+download_all_db.spec
+icon_d.ico
 .buildozer
 pr.py
 pr2.py
