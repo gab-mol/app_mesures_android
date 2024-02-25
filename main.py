@@ -374,54 +374,7 @@ class ScManag(MDScreenManager):
             size_hint_x=0.8,
             radius=[20,20,20,20]           
         ).open()        
-    
-    def save_mes_med(self):
-        '''Send to database using `request.post` method.
-        A timestamp is included along with the data 
-        (`datetime` module. UTC).
-        '''
-        # Retive text from ScrollView's MDTextField childrens
-        data_list = []
-        for child in reversed(self.ids.input_fields.children):
-            if isinstance(child, MDTextField):
-                data_list.append(child.text)
-        print("DATA LIST:",data_list)
-        timestamp = str(datetime.now(timezone.utc)).replace(" ", "_")
-        data ={
-            "timestamp":timestamp,
-            "medidas":{
-                "peso":data_list[0],
-                "dso_mx":data_list[1],
-                "dso_mn":data_list[2],
-                "dbo_mx":data_list[3],
-                "dbo_mn":data_list[4]
-                }
-            }
-        
-        def alta(*args):
-            '''Send data to Firebase DB.'''
-            # `self.user['idToken']` mandatory for user verification
-            try:
-                results = self.db.child(
-                    self.db_node_target
-                    ).child(datetime.now().strftime(
-                        "%d-%m-%y(%H:%M:%S)")
-                        ).set(data, self.user['idToken'])
-                self.show_note("Datos enviados.")
-                print("RESPUESTA:")
-                print(results)       
-            except:
-                self.show_note("No se pudo enviar.")
-            self.app.close_warng()
-
-        self.app.close_warng()
-        self.app.warning(
-            text="¿Enviar medidas?",
-            ok_txt="Enviar",
-            dism_txt="Cancelar",
-            met1=alta
-        )
-        
+      
     def test_db(self):
         '''Switch between defoult and test nodes of Firebase DB.
         (for development purposes only)'''
