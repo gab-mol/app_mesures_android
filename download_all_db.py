@@ -98,7 +98,7 @@ class Extrac:
         
         return tb
 
-    def download_all(self, DB_DIR, time_str=False):
+    def download_mesur(self, DB_DIR, time_str=False):
         '''Download all content from `DB_DIR` directory of the DB.'''
         response = None
         try:
@@ -146,6 +146,58 @@ class Extrac:
 
         return tb
 
+
+    def download_punct(self, DB_DIR, time_str=False):
+        '''Download all content from `DB_DIR` directory of the DB.'''
+        response = None
+        try:
+            response = self.db.child(DB_DIR).get(token=self.user["idToken"])
+        except:
+            print("FALLÓ DESCARGA DE DATOS pinchadura")
+        
+        timestamp = []
+        fecha = []
+        bicicl = []
+        rueda = []
+        camar = []
+        npinc = []
+        camar_r = []
+
+        for d in response.each():
+
+            regis = dict(d.val())
+
+            # timestamp
+            time_str = regis["timestamp"]
+            time = pd.to_datetime(time_str.replace("_", " "))
+            time = time - pd.Timedelta(hours=3)
+            timestamp.append(time)
+
+            # actual mesures
+            medid = regis["notas_bicicleta"]
+            fecha.append(pd.to_numeric(medid["Fecha"].replace(",",".")))
+            bicicl.append(pd.to_numeric(medid["Bicicleta"].replace(",",".")))
+            rueda.append(pd.to_numeric(medid["Rueda"].replace(",",".")))
+            camar.append(pd.to_numeric(medid["Cámara"].replace(",",".")))
+            npinc.append(pd.to_numeric(medid["n° Pinchaduras"].replace(",",".")))
+            camar_r.append(pd.to_numeric(medid["Cámara reemplazo"].replace(",",".")))
+
+        tb = pd.DataFrame({
+            "registro":timestamp,
+            "fecha":fecha,
+            "bicicleta":bicicl,
+            "rueda":rueda,
+            "camara":camar,
+            "n_pinchadura":npinc,
+            "camara_reemplazo":camar_r
+        })
+        print(tb)
+
+        if time_str:
+            tb["fecha"] = tb["fecha"].dt.strftime('%Y-%m-%d-%H:%M:%S')
+
+        return tb
+
     def cvs(tb:pd.DataFrame, name):
         print(f"Guardado {name} en:\n{DIR}")
         tb.to_csv(os.path.join(DIR,name), ";", index=False)
@@ -156,13 +208,15 @@ class LocStor:
     def __init__(self, confg:ConfigParser) -> None:
         confg = confg["sql"]
         db_path = confg["db_path"]
-        self.name_tb = confg["name_tb"]
+        self.name_tb_m = confg["name_tb1"]
+        self.name_tb_b = confg["name_tb2"]
 
         self.conn = sqlite3.connect(db_path)
         
-        # with self.conn.cursor() as cursor:
+        # SQL table creation querrys
         cursor = self.conn.cursor()
-        main_tb = f'''CREATE TABLE IF NOT EXISTS {self.name_tb}(\
+        ## Mesures        
+        main_tb = f'''CREATE TABLE IF NOT EXISTS {self.name_tb_m}(\
             timestamp TEXT PRIMARY KEY, \
             peso real, \
             dso_mx real, \
@@ -179,6 +233,16 @@ class LocStor:
             dbo_mx real, \
             dbo_mn real)'''
         cursor.execute(stage_tb)
+
+        ## Punctures
+        punc_tb = f'''CREATE TABLE IF NOT EXISTS {self.name_tb_p}(\
+            timestamp TEXT PRIMARY KEY, \
+            peso real, \
+            dso_mx real, \
+            dso_mn real, \
+            dbo_mx real, \
+            dbo_mn real)'''
+
         self.conn.commit()
 
     def alta(self,data:list, tb_name:str):
@@ -197,28 +261,28 @@ class LocStor:
         except:
             print("ERROR EN ALTA A: sqlite local")
 
-    def scd1(self,df:pd.DataFrame):
+    def scd1(self,df:pd.DataFrame, ta):
         '''Alta Querry with SCD type 1 strategy.'''
 
         # staging
         for i in range(len(df)):
-            data = tb.iloc[i].to_list()
+            data = df.iloc[i].to_list()
             sql_local.alta(data, "stage")
 
         # Load to main table
         q = f'''
-            INSERT OR IGNORE INTO {self.name_tb}(timestamp, peso, dso_mx, dso_mn, dbo_mx, dbo_mn)
+            INSERT OR IGNORE INTO {self.name_tb_m}(timestamp, peso, dso_mx, dso_mn, dbo_mx, dbo_mn)
             SELECT stage.timestamp, stage.peso, stage.dso_mx, stage.dso_mn, stage.dbo_mx, 
             stage.dbo_mn 
             FROM stage 
-            LEFT OUTER JOIN {self.name_tb} 
-            ON {self.name_tb}.timestamp = stage.timestamp;
+            LEFT OUTER JOIN {self.name_tb_m} 
+            ON {self.name_tb_m}.timestamp = stage.timestamp;
         '''
         try:
             cursor = self.conn.cursor()
             cursor.execute(q)
             self.conn.commit()
-            print(f"\nLEFT OUTER JOIN: stage-{self.name_tb}")
+            print(f"\nLEFT OUTER JOIN: stage-{self.name_tb_m}")
         except:
             print("ERROR en querry, o no hay registros nuevos que agregar\n\
 (condición del join no se cumple)")
@@ -248,8 +312,11 @@ if __name__ == "__main__":
     db, auth, user = ini_ext.db_utils()
 
     extrac = Extrac(db,user)
-    tb = extrac.download_all(confg["pyrebase"]["dir_name"],
+    tb_m = extrac.download_mesur(confg["pyrebase"]["dir_name1"],
         time_str=True)
-
+    tb_b = extrac.download_mesur(confg["pyrebase"]["dir_name2"],
+        time_str=True)
+    
     sql_local = LocStor(confg)
-    sql_local.scd1(tb)
+    sql_local.scd1(tb_b)
+    
