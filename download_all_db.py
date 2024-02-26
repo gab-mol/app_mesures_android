@@ -116,7 +116,7 @@ class Extrac:
         for d in response.each():
 
             regis = dict(d.val())
-
+            print("\n\n\n",regis,"\n\n\n")
             # timestamp
             time_str = regis["timestamp"]
             time = pd.to_datetime(time_str.replace("_", " "))
@@ -172,15 +172,15 @@ class Extrac:
             time = pd.to_datetime(time_str.replace("_", " "))
             time = time - pd.Timedelta(hours=3)
             timestamp.append(time)
-
+            
             # actual mesures
             medid = regis["notas_bicicleta"]
-            fecha.append(pd.to_numeric(medid["Fecha"].replace(",",".")))
-            bicicl.append(pd.to_numeric(medid["Bicicleta"].replace(",",".")))
-            rueda.append(pd.to_numeric(medid["Rueda"].replace(",",".")))
-            camar.append(pd.to_numeric(medid["Cámara"].replace(",",".")))
+            fecha.append(str(medid["Fecha"].replace(",",".")))
+            bicicl.append(str(medid["Bicicleta"].replace(",",".")))
+            rueda.append(str(medid["Rueda"].replace(",",".")))
+            camar.append(str(medid["Cámara"].replace(",",".")))
             npinc.append(pd.to_numeric(medid["n° Pinchaduras"].replace(",",".")))
-            camar_r.append(pd.to_numeric(medid["Cámara reemplazo"].replace(",",".")))
+            camar_r.append(str(medid["Cámara reemplazo"].replace(",",".")))
 
         tb = pd.DataFrame({
             "registro":timestamp,
@@ -194,7 +194,7 @@ class Extrac:
         print(tb)
 
         if time_str:
-            tb["fecha"] = tb["fecha"].dt.strftime('%Y-%m-%d-%H:%M:%S')
+            tb["registro"] = tb["registro"].dt.strftime('%Y-%m-%d-%H:%M:%S')
 
         return tb
 
@@ -207,9 +207,9 @@ class LocStor:
     '''Local storage of App records.'''
     def __init__(self, confg:ConfigParser) -> None:
         confg = confg["sql"]
-        db_path = confg["db_path"]
+        db_path = confg["db_path_pr"]
         self.name_tb_m = confg["name_tb1"]
-        self.name_tb_b = confg["name_tb2"]
+        self.name_tb_p = confg["name_tb2"]
 
         self.conn = sqlite3.connect(db_path)
         
@@ -237,22 +237,40 @@ class LocStor:
         ## Punctures
         punc_tb = f'''CREATE TABLE IF NOT EXISTS {self.name_tb_p}(\
             timestamp TEXT PRIMARY KEY, \
-            peso real, \
-            dso_mx real, \
-            dso_mn real, \
-            dbo_mx real, \
-            dbo_mn real)'''
+            fecha TEXT, \
+            bicicleta TEXT, \
+            rueda TEXT, \
+            camara TEXT, \
+            n_pinchaduras real,
+            camara_reempl TEXT)'''
+        cursor.execute(punc_tb)
+
+        punc_tb_s = f'''CREATE TABLE IF NOT EXISTS stage2(\
+            timestamp TEXT PRIMARY KEY, \
+            fecha TEXT, \
+            bicicleta TEXT, \
+            rueda TEXT, \
+            camara TEXT, \
+            n_pinchaduras real,
+            camara_reempl TEXT)'''
+        cursor.execute(punc_tb_s)
 
         self.conn.commit()
 
-    def alta(self,data:list, tb_name:str):
-        querry = f'''
-        INSERT INTO {tb_name}(timestamp, peso, dso_mx, dso_mn, dbo_mx, 
-        dbo_mn) 
-        VALUES(?, ?, ?, ?, ?, ?)
+    def alta(self,data:list, tb_name:str, cols:list[str]):
+        '''Performs `INSERT INTO` querry for table `tb_name`
+        with columns `cols`.
+
+        ### Parameters
+            - `data`: `list` of data to insert.
+            - `tb_name`: name of the table in DB to insert.
+            - `cols`: `list` of `str` with de columns of table.
         '''
-        data = [str(data[0]), float(data[1]), float(data[2]), 
-            float(data[3]), float(data[4]), float(data[5])]
+        querry = f'''
+        INSERT INTO {tb_name}({", ".join(cols)}) 
+        VALUES({", ".join(["?" for i in range(len(cols))])})
+        '''
+
         try:
             cursor = self.conn.cursor()
             cursor.execute(querry, data)
@@ -261,13 +279,17 @@ class LocStor:
         except:
             print("ERROR EN ALTA A: sqlite local")
 
-    def scd1(self,df:pd.DataFrame, ta):
+    def scd1_m(self,df:pd.DataFrame):
         '''Alta Querry with SCD type 1 strategy.'''
-
+        columns = ["timestamp", "peso", "dso_mx", "dso_mn", "dbo_mx",
+            "dbo_mn"]
         # staging
         for i in range(len(df)):
-            data = df.iloc[i].to_list()
-            sql_local.alta(data, "stage")
+            record = df.iloc[i].to_list()
+            data = [str(record[0]), float(record[1]), float(record[2]), 
+            float(record[3]), float(record[4]), float(record[5])]
+
+            sql_local.alta(data, "stage", columns)
 
         # Load to main table
         q = f'''
@@ -289,11 +311,50 @@ class LocStor:
         finally:
             print("Cleaning stage tb...")
             self.stage_clean()
+    
+    def scd1_p(self,df:pd.DataFrame):
+        '''Alta Querry with SCD type 1 strategy.'''
+        columns = ["timestamp", "fecha", "bicicleta", "rueda", "camara",
+            "n_pinchaduras", "camara_reempl"]
+        # staging
+        for i in range(len(df)):
+            record = df.iloc[i].to_list()
+            data = [str(record[0]), str(record[1]), str(record[2]), 
+            str(record[3]), str(record[4]), int(record[5]), str(record[6])]
+
+            sql_local.alta(data, "stage2", columns)
+
+        # Load to main table
+        q = f'''
+            INSERT OR IGNORE INTO {self.name_tb_p}(timestamp, fecha, bicicleta, rueda, camara,
+            n_pinchaduras, camara_reempl)
+            SELECT stage2.timestamp, stage2.fecha, stage2.bicicleta, stage2.rueda, stage2.camara,
+            stage2.n_pinchaduras, stage2.camara_reempl
+            FROM stage2 
+            LEFT OUTER JOIN {self.name_tb_p} 
+            ON {self.name_tb_p}.timestamp = stage2.timestamp;
+        '''
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(q)
+            self.conn.commit()
+            print(f"\nLEFT OUTER JOIN: stage2-{self.name_tb_m}")
+        except:
+            print("ERROR en querry, o no hay registros nuevos que agregar\n\
+(condición del join no se cumple)")
+        finally:
+            print("Cleaning stage tb...")
+            self.stage_clean("2")
         
-    def stage_clean(self):
+    def stage_clean(self,target="1"):
+        if target == "1":
+            tb_n = "stage"
+        else:
+            tb_n = "stage2"
+
         '''REMOVE ALL RECORDS FROM stage TABLE.'''
-        truncate = '''
-        DELETE FROM stage;
+        truncate = f'''
+        DELETE FROM {tb_n};
         '''
         try:
             cursor = self.conn.cursor()
@@ -312,11 +373,13 @@ if __name__ == "__main__":
     db, auth, user = ini_ext.db_utils()
 
     extrac = Extrac(db,user)
-    tb_m = extrac.download_mesur(confg["pyrebase"]["dir_name1"],
+    tb_m = extrac.download_mesur(confg["pyrebase"]["db_node1"],
         time_str=True)
-    tb_b = extrac.download_mesur(confg["pyrebase"]["dir_name2"],
+    tb_p = extrac.download_punct(confg["pyrebase"]["db_node2"],
         time_str=True)
     
     sql_local = LocStor(confg)
-    sql_local.scd1(tb_b)
+    sql_local.scd1_m(tb_m)
+    sql_local.scd1_p(tb_p)
+
     
