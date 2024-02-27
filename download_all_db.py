@@ -4,7 +4,7 @@ from configparser import ConfigParser
 import pandas as pd
 import pyrebase
 import sqlite3
-
+from time import sleep
 
 
 DIR = os.getcwd()
@@ -18,7 +18,7 @@ class FireDbConn:
     def __init__(self, config:ConfigParser) -> None:
         self.config = config
         self.db_url = self.config["firebase"]["url"]
-        self.data_name = self.config["firebase"]["data_name"]
+        # self.data_name = self.config["firebase"]["data_name"]
         db_confg = self.config["pyrebase"]
         conf = {
                 "apiKey": db_confg["apiKey"],
@@ -33,9 +33,9 @@ class FireDbConn:
 
         try:
             self.conn = pyrebase.initialize_app(conf)
-            print("`initialize_app`: > WORK")
+            print("`init pyrebase app`: > WORK")
         except:
-            print("`initialize_app`: X FAIL")
+            print("`init pyrebase app`: X FAIL")
     
     def db_utils(self):
         db = self.conn.database()
@@ -50,53 +50,6 @@ class Extrac:
     def __init__(self, db, user):
         self.db = db
         self.user = user
-
-    # deprecated
-    def download_all_request(db_url,data_name) -> pd.DataFrame:
-        '''
-        Descarga todo lo almacenado en la base de datos (Firebase) 
-        mediante `request.get`, y lo retorna en formateado 
-        como `pandas.DataFrame`.
-        '''
-        
-        try:
-            res2 = requests.get(url=db_url+data_name+"/.json")
-        except:
-            Exception("Falló la consulta")
-        finally:
-            print(res2)
-            
-        res_json = res2.json()
-        
-        timestamp = []
-        peso = []
-        dso_mx = []
-        dso_mn = []
-        dbo_mx = []
-        dbo_mn = []
-        
-        for k in res_json.keys():
-            time_str = res_json[k]["timestamp"]
-            time = pd.to_datetime(time_str.replace("_", " "))
-            
-            timestamp.append(time)
-            medid = res_json[k]["medidas"]
-            peso.append(pd.to_numeric(medid["peso"].replace(",",".")))
-            dso_mx.append(pd.to_numeric(medid["dso_mx"].replace(",",".")))
-            dso_mn.append(pd.to_numeric(medid["dso_mn"].replace(",",".")))
-            dbo_mx.append(pd.to_numeric(medid["dbo_mx"].replace(",",".")))
-            dbo_mn.append(pd.to_numeric(medid["dbo_mn"].replace(",",".")))
-            
-        tb = pd.DataFrame({
-            "fechaUTC":timestamp,
-            "peso":peso,
-            "dso_mx":dso_mx,
-            "dso_mn":dso_mn,
-            "dbo_mx":dbo_mx,
-            "dbo_mn":dbo_mn
-        })
-        
-        return tb
 
     def download_mesur(self, DB_DIR, time_str=False):
         '''Download all content from `DB_DIR` directory of the DB.'''
@@ -366,20 +319,73 @@ class LocStor:
 
 
 if __name__ == "__main__":
+    print("INICIANDO CONEXIÓN\n")
+    # Load Configuration
     confg = ConfigParser()
-    confg.read(os.path.join(DIR, "db.ini"))
+    configure = False
+    while not configure:
+        print("dentro")
+        try:
+            confg.read(os.path.join(DIR, "db.ini"))
+            configure = True
+        except:
+            print("\n¡ERROR AL LEER archivo de configuración `db.ini`!\n\n")
+            print("Ubicarlo en directorio de ejecución correctamente configurado.")
+            res = input("> C < para cerrar programa\n>")
+            if res == "C" or res == "c": exit()
+    cfg_pyr = confg["pyrebase"]
+    cfg_sql = confg["sql"]
 
+    # Extraction
     ini_ext = FireDbConn(confg)
     db, auth, user = ini_ext.db_utils()
-
     extrac = Extrac(db,user)
-    tb_m = extrac.download_mesur(confg["pyrebase"]["db_node1"],
-        time_str=True)
-    tb_p = extrac.download_punct(confg["pyrebase"]["db_node2"],
-        time_str=True)
+    extraction1, extraction2 = False, False
     
-    sql_local = LocStor(confg)
-    sql_local.scd1_m(tb_m)
-    sql_local.scd1_p(tb_p)
+    while not extraction1:
+        try:
+            tb_m = extrac.download_mesur(cfg_pyr["db_node1"],
+                time_str=True)
+            extraction1 = True
+        except:
+            print(f"FALLÓ DESCARGA {cfg_pyr['db_node1']}")
+            res = input(">ENTER< para reintentar. > C < para cerrar \
+programa\n")
+            if res == "C" or res == "c": exit()    
+    while not extraction2:
+        try:
+            tb_p = extrac.download_punct(cfg_pyr['db_node2'],
+            time_str=True)
+            extraction2 = True
+        except:
+            print(f"FALLÓ DESCARGA {cfg_pyr['db_node2']}")
+            res = input(">ENTER< para reintentar. > C < para cerrar \
+programa\n")
+            if res == "C" or res == "c": exit()
 
-    
+    # Storage
+    sql_local = LocStor(confg)
+    storage1, storage2 = False, False
+
+    while not storage1:
+        try:
+            sql_local.scd1_m(tb_m)
+            storage1 = True
+        except:
+            print(f"FALLÓ DESCARGA {cfg_sql['name_tb1']}")
+            res = input(">ENTER< para reintentar. > C < para cerrar \
+programa\n")
+            if res == "C" or res == "c": exit()
+    while not storage2:
+        try:
+            sql_local.scd1_p(tb_p)
+            storage2 = True
+        except:
+            print(f"FALLÓ DESCARGA {cfg_sql['name_tb2']}")
+            res = input(">ENTER< para reintentar. > C < para cerrar \
+programa\n")
+            if res == "C" or res == "c": exit()
+
+    print("\nDescarga exitosa.\nCerrando...")
+    sleep(5)
+    exit()
