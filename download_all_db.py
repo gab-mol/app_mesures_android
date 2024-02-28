@@ -8,7 +8,7 @@ import pandas as pd
 import pyrebase
 import sqlite3
 from time import sleep
-
+from sys import exit
 
 DIR = os.getcwd()
 
@@ -99,7 +99,7 @@ class Extrac:
 
 
     def download_punct(self, DB_DIR, time_str=False):
-        '''Download all content from `DB_DIR` directory of the DB.'''
+        '''Download all content from `DB_DIR` directoryf of the DB.'''
         response = None
         try:
             response = self.db.child(DB_DIR).get(token=self.user["idToken"])
@@ -158,7 +158,7 @@ class LocStor:
     '''Local storage of App records.'''
     def __init__(self, confg:ConfigParser) -> None:
         confg = confg["sql"]
-        db_path = confg["db_path_pr"]
+        db_path = confg["db_path"]
         self.name_tb_m = confg["name_tb1"]
         self.name_tb_p = confg["name_tb2"]
 
@@ -226,7 +226,7 @@ class LocStor:
             cursor = self.conn.cursor()
             cursor.execute(querry, data)
             self.conn.commit()
-            print(f"\nRegistro guardado en tabla: {tb_name}\n")
+            #print(f"\nRegistro guardado en tabla: {tb_name}\n")
         except:
             print("ERROR EN ALTA A: sqlite local")
 
@@ -255,7 +255,7 @@ class LocStor:
             cursor = self.conn.cursor()
             cursor.execute(q)
             self.conn.commit()
-            print(f"\nLEFT OUTER JOIN: stage-{self.name_tb_m}")
+            print(f"\nActualizanda tabla: {self.name_tb_m}")
         except:
             print("ERROR en querry, o no hay registros nuevos que agregar\n\
 (condición del join no se cumple)")
@@ -289,7 +289,7 @@ class LocStor:
             cursor = self.conn.cursor()
             cursor.execute(q)
             self.conn.commit()
-            print(f"\nLEFT OUTER JOIN: stage2-{self.name_tb_m}")
+            print(f"\nActualizanda tabla: {self.name_tb_p}")
         except:
             print("ERROR en querry, o no hay registros nuevos que agregar\n\
 (condición del join no se cumple)")
@@ -322,7 +322,6 @@ if __name__ == "__main__":
     confg = ConfigParser()
     configure = False
     while not configure:
-        print("dentro")
         try:
             confg.read(os.path.join(DIR, "db.ini"))
             configure = True
@@ -384,6 +383,8 @@ programa\n")
 programa\n")
             if res == "C" or res == "c": exit()
 
-    print("\nDescarga exitosa.\nCerrando...")
-    sleep(5)
+    print("\nDescarga exitosa.")
+    print("Registros guardados en Base de Datos local:\n",cfg_sql["db_path"])
+    print("\n\nCerrando...")
+    sleep(10)
     exit()
