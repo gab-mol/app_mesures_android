@@ -1,4 +1,7 @@
-import requests
+'''
+Application to automate the download of logs from Firebase to a local SQLlite
+database.
+'''
 import os
 from configparser import ConfigParser
 import pandas as pd
@@ -8,11 +11,6 @@ from time import sleep
 
 
 DIR = os.getcwd()
-# pruebas_desarrollo OR medidas_reales_pr
-# DB_DIR = "medidas_reales_pr"
-# cvs file storage (tests)
-NAME_CVS = "pr_download2.cvs"
-
 
 class FireDbConn:
     def __init__(self, config:ConfigParser) -> None:
@@ -69,7 +67,7 @@ class Extrac:
         for d in response.each():
 
             regis = dict(d.val())
-            print("\n\n\n",regis,"\n\n\n")
+            
             # timestamp
             time_str = regis["timestamp"]
             time = pd.to_datetime(time_str.replace("_", " "))
