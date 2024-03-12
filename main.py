@@ -145,7 +145,10 @@ KV = '''
                 icon_size: app.wresize["bar_fsize"]
                 on_press:
                     app.root.transition = SlideTransition(direction="right")
-                    app.root.current = "bike_notes"        
+                    app.root.current = "bike_notes"    
+            MDIcon:
+                icon: root.led_ico
+                pos_hint: {'right': .48, "center_y": .65}
         BoxLayout:
             size_hint: 1, .9
             orientation: 'vertical'
@@ -245,6 +248,9 @@ class ScManag(MDScreenManager):
     pwd_r1 = StringProperty()
     pwd_r2 = StringProperty()
 
+    # "sent notice" 
+    led_ico = StringProperty()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.app = MDApp.get_running_app()
@@ -319,6 +325,9 @@ class ScManag(MDScreenManager):
             self.ids.input_bike.add_widget(
                 MDLabel(size_hint=(.7, .08))
             )
+
+        # "sent led" on?
+        self.switch_redled(False)
 
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
@@ -439,7 +448,10 @@ class ScManag(MDScreenManager):
                         ).set(data, self.user['idToken'])
                 self.show_note("Datos enviados.")
                 print("RESPUESTA:")
-                print(results)       
+                print(results)
+
+                # switch on "led"
+                self.switch_redled(True)
             except:
                 self.show_note("No se pudo enviar.")
             self.app.close_warng()
@@ -452,6 +464,13 @@ class ScManag(MDScreenManager):
             met1=alta
         )
     
+    # sent data notice method ("red led")
+    def switch_redled(self,on:bool):
+        '''ON/OFF red led.'''
+        if on:
+            self.led_ico = "resources\led_rojo_on.ico"
+        else:
+            self.led_ico = "resources\led_rojo_off.ico"
 
 class MedidasApp(MDApp):
     
