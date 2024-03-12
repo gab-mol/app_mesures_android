@@ -220,6 +220,7 @@ class FireBase:
         except:
             print("`database`: X FAIL")
             return None
+        
     def auth(self):
         '''Returns Firebase `auth` object 
         (user authentication methods)'''
@@ -230,6 +231,23 @@ class FireBase:
         except:
             print("`auth`: X FAIL")
             return None
+
+    def check_today_data(self,db, db_node, idToken) -> bool:
+        '''
+        Checks if there is data for the current day in the database.
+        '''
+        childrens = db.child(db_node).get(token=idToken).val().keys()
+        today = datetime.now().strftime("%d-%m-%y")
+        dates = [chil[0:8] for chil in childrens]
+        if today in dates:
+            print("Datos ya enviados hoy")
+            return True
+        else:
+            print("No hay datos de hoy")
+            return False
+        
+        
+
 
 # Kivy classes          ####     ####     ####
 class Input(MDTextField):
@@ -327,7 +345,16 @@ class ScManag(MDScreenManager):
             )
 
         # "sent led" on?
-        self.switch_redled(False)
+        already_sent = self.fbase.check_today_data(
+            self.db, 
+            self.db_node_target1, 
+            self.user["idToken"]
+            )
+        
+        self.switch_redled(already_sent)
+
+        
+
 
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
