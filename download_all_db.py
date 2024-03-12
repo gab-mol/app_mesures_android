@@ -31,9 +31,9 @@ class FireDbConn:
 
         try:
             self.conn = pyrebase.initialize_app(conf)
-            print("`init pyrebase app`: > WORK")
+            print("init pyrebase app: > WORK")
         except:
-            print("`init pyrebase app`: X FAIL")
+            print("init pyrebase app: X FAIL")
     
     def db_utils(self):
         db = self.conn.database()
@@ -90,7 +90,7 @@ class Extrac:
             "dbo_mx":dbo_mx,
             "dbo_mn":dbo_mn
         })
-        print(tb)
+        print(tb.tail(7))
 
         if time_str:
             tb["fecha"] = tb["fecha"].dt.strftime('%Y-%m-%d-%H:%M:%S')
@@ -142,7 +142,7 @@ class Extrac:
             "n_pinchadura":npinc,
             "camara_reemplazo":camar_r
         })
-        print(tb)
+        print(tb.tail(5))
 
         if time_str:
             tb["registro"] = tb["registro"].dt.strftime('%Y-%m-%d-%H:%M:%S')
