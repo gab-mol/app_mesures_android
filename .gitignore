@@ -3,6 +3,7 @@ bin
 build
 dists
 dist
+resources
 download_all_db.spec
 icon_d.ico
 .buildozer
