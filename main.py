@@ -494,10 +494,11 @@ class ScManag(MDScreenManager):
     # sent data notice method ("red led")
     def switch_redled(self,on:bool):
         '''ON/OFF red led.'''
+        print("switch_redled")
         if on:
-            self.led_ico = "resources\led_rojo_on.ico"
+            self.led_ico = "resources/led_rojo_on.ico"
         else:
-            self.led_ico = "resources\led_rojo_off.ico"
+            self.led_ico = "resources/led_rojo_off.ico"
 
 class MedidasApp(MDApp):
     
