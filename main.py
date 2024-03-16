@@ -10,7 +10,7 @@ Config.set('graphics', 'width', '500')
 Config.set('graphics', 'height', '700')
 from kivy.core.window import Window
 from kivy.lang import Builder
-from kivy.properties import DictProperty, StringProperty 
+from kivy.properties import DictProperty, StringProperty #, ObjectProperty
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
 from kivymd.uix.dialog import MDDialog
@@ -129,26 +129,31 @@ KV = '''
                 anchor_title: "left"
                 # right_action_items: [["content-save", lambda x: root.save_mes_med()]]
                 pos_hint: {'top': 1}
+            MDRectangleFlatIconButton:
+                icon: root.led_ico
+                text: " "+root.count
+                theme_text_color: "Custom"
+                text_color: "white"
+                line_color: 1,1,1,0
+                pos_hint: {'right': .99, "center_y": .65}
             MDIconButton:
                 icon: "content-save"
-                pos_hint: {'right': .99, "center_y": .65}
+                pos_hint: {'right': .89, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.save_mes("corp_mes")
             MDIconButton:
                 icon: "test-tube"
-                pos_hint: {'right': .83, "center_y": .65}
+                pos_hint: {'right': .79, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press: root.test_db()
             MDIconButton:
                 icon: "bicycle"
-                pos_hint: {'right': .68, "center_y": .65}
+                pos_hint: {'right': .69, "center_y": .65}
                 icon_size: app.wresize["bar_fsize"]
                 on_press:
                     app.root.transition = SlideTransition(direction="right")
-                    app.root.current = "bike_notes"    
-            MDIcon:
-                icon: root.led_ico
-                pos_hint: {'right': .48, "center_y": .65}
+                    app.root.current = "bike_notes"
+
         BoxLayout:
             size_hint: 1, .9
             orientation: 'vertical'
@@ -232,21 +237,25 @@ class FireBase:
             print("`auth`: X FAIL")
             return None
 
-    def check_today_data(self,db, db_node, idToken) -> bool:
+    def check_today_data(self,db, db_node, idToken) -> tuple:
         '''
-        Checks if there is data for the current day in the database.
+        Checks if there is data from the current day in the database.
+        
+        return
+            tuple: (bool, str). If it is data from today, and how many records (formated).
         '''
         childrens = db.child(db_node).get(token=idToken).val().keys()
         today = datetime.now().strftime("%d-%m-%y")
         dates = [chil[0:8] for chil in childrens]
+        today_dat = str(sum(today == d for d in dates))
         if today in dates:
             print("Datos ya enviados hoy")
-            return True
+            check = True
         else:
             print("No hay datos de hoy")
-            return False
+            check = False
         
-        
+        return (check, f"{today_dat}")
 
 
 # Kivy classes          ####     ####     ####
@@ -268,7 +277,8 @@ class ScManag(MDScreenManager):
 
     # "sent notice" 
     led_ico = StringProperty()
-
+    count = StringProperty()
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.app = MDApp.get_running_app()
@@ -351,8 +361,8 @@ class ScManag(MDScreenManager):
             self.user["idToken"]
             )
         
-        self.switch_redled(already_sent)
-
+        self.switch_redled(already_sent[0])
+        self.count = already_sent[1]
         
 
 
@@ -479,6 +489,7 @@ class ScManag(MDScreenManager):
 
                 # switch on "led"
                 self.switch_redled(True)
+                self.count = str(int(self.count)+1)
             except:
                 self.show_note("No se pudo enviar.")
             self.app.close_warng()
@@ -494,7 +505,6 @@ class ScManag(MDScreenManager):
     # sent data notice method ("red led")
     def switch_redled(self,on:bool):
         '''ON/OFF red led.'''
-        print("switch_redled")
         if on:
             self.led_ico = "resources/led_rojo_on.ico"
         else:
