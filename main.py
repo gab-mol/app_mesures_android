@@ -23,6 +23,9 @@ from kivy.config import ConfigParser
 # other modules
 from datetime import datetime, timezone
 import pyrebase
+import re
+
+
 
 # KV code         ####     ####     ####
 KV = '''
@@ -449,10 +452,22 @@ class ScManag(MDScreenManager):
         for child in reversed(conteiner):
             if isinstance(child, MDTextField):
                 data_list.append(child.text)
-        print("DATA LIST:",data_list)
+        print("DATA LIST:", data_list)
         timestamp = str(datetime.now(timezone.utc)).replace(" ", "_")
         
+        # Field verification (for `corp_mes` only)
+        def numeric_field(input) -> bool:
+            '''Search for alphabetic characters.'''
+            detect = re.search(r"[A-Za-z]", input)
+            return True if detect else False
+
         if mode == "corp_mes":
+            verify = list()
+            for d in data_list:
+                verify.append(numeric_field(d))
+            
+            format_error = True if True in verify else False
+
             data ={
                 "timestamp":timestamp,
                 "medidas":{
@@ -463,6 +478,7 @@ class ScManag(MDScreenManager):
                     "dbo_mn":data_list[4]
                     }
                 }
+            
         elif mode == "bike_notes":
             data ={
                 "timestamp":timestamp,
@@ -478,8 +494,8 @@ class ScManag(MDScreenManager):
             
         def alta(*args):
             '''Send data to Firebase DB.'''
-            # `self.user['idToken']` mandatory for user verification
             try:
+                # `self.user['idToken']` mandatory for user verification
                 results = self.db.child(db_node).child(
                     datetime.now().strftime("%d-%m-%y(%H:%M:%S)")
                         ).set(data, self.user['idToken'])
@@ -494,21 +510,25 @@ class ScManag(MDScreenManager):
                 self.show_note("No se pudo enviar.")
             self.app.close_warng()
 
-        self.app.close_warng()
-        self.app.warning(
-            text="¿Enviar medidas?",
-            ok_txt="Enviar",
-            dism_txt="Cancelar",
-            met1=alta
-        )
-    
-    # sent data notice method ("red led")
-    def switch_redled(self,on:bool):
+        if format_error:
+            self.show_note("Entrada incorrecta.")
+        else:
+            self.app.close_warng()
+            self.app.warning(
+                text="¿Enviar medidas?",
+                ok_txt="Enviar",
+                dism_txt="Cancelar",
+                met1=alta
+            )
+        
+    # "sent data notice" method ("red led")
+    def switch_redled(self, on:bool):
         '''ON/OFF red led.'''
         if on:
             self.led_ico = "resources/led_rojo_on.ico"
         else:
             self.led_ico = "resources/led_rojo_off.ico"
+
 
 class MedidasApp(MDApp):
     
