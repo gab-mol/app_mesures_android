@@ -1,5 +1,5 @@
 '''
-# Antotador personal.
+# Anotador personal.
 Intento de aplicación diseñada para android.
 
 '''
@@ -10,7 +10,7 @@ Config.set('graphics', 'width', '500')
 Config.set('graphics', 'height', '700')
 from kivy.core.window import Window
 from kivy.lang import Builder
-from kivy.properties import DictProperty, StringProperty #, ObjectProperty
+from kivy.properties import DictProperty, StringProperty
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
 from kivymd.uix.dialog import MDDialog
@@ -18,14 +18,16 @@ from kivymd.uix.button import MDFlatButton
 from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.label import MDLabel
 from kivymd.uix.textfield import MDTextField
+from kivymd.uix.list import MDList
 from kivy.metrics import dp
 from kivy.config import ConfigParser
+from kivymd.uix.widget import Widget
+from kivymd.uix.behaviors.focus_behavior import FocusBehavior
 # other modules
 from datetime import datetime, timezone
 import pyrebase
-import re
 
-
+input_fields_pos = 0
 
 # KV code         ####     ####     ####
 KV = '''
@@ -162,7 +164,7 @@ KV = '''
             orientation: 'vertical'
             padding: 15
             ScrollView:
-                MDList:
+                InputList:
                     id: input_fields
                     spacing: 10
     Screen:
@@ -192,7 +194,7 @@ KV = '''
             orientation: 'vertical'
             padding: 15
             ScrollView:
-                MDList:
+                InputList:
                     id: input_bike
                     spacing: 10
 '''
@@ -262,10 +264,21 @@ class FireBase:
 
 
 # Kivy classes          ####     ####     ####
-class Input(MDTextField):
-    id = StringProperty()
+class Input(MDTextField, FocusBehavior):
+    n = StringProperty()
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        Window.bind(on_key_down=self._keydown)
+
+    def _keydown(self, *args):
+        '''Detects ENTER key when pressed'''
+        global input_fields_pos
+        #  len(self.text_fields)
+        if args[1] == 13 and args[2] == 40:
+            # print(self, input_fields_pos)
+            if input_fields_pos == int(self.n):
+                print("ENTRA en", self.n)
+                self.focus = True
 
 
 class ScManag(MDScreenManager):
@@ -315,17 +328,19 @@ class ScManag(MDScreenManager):
             self.data_name = self.config["firebase"]["data_name"]
         
         # input list declaration (Screen: 'corp_mes')
-        for text in ["Peso (g)",
+        for text, n in zip(["Peso (g)",
              "Diámetro SO max (cm)",
              "Diámetro SO max (cm)",
              "Diámetro BO max (cm)",
-             "Diámetro BO max (cm)"]:
+             "Diámetro BO max (cm)"], [str(n) for n in range(5)]):
             self.ids.input_fields.add_widget(
-                MDTextField(
+                Input(
+                    n = n,
                     size_hint=(.7, .08),
                     mode="rectangle",
                     font_size=self.app.wresize["bar_fsize"],
                     hint_text=text,
+                    write_tab=False,
                     line_color_normal=self.app.theme_cls.accent_color
                 )
             )
@@ -349,6 +364,7 @@ class ScManag(MDScreenManager):
                     mode="rectangle",
                     font_size=self.app.wresize["bar_fsize"],
                     hint_text=text,
+                    write_tab=False,
                     line_color_normal=self.app.theme_cls.accent_color
                 )
             )
@@ -366,8 +382,8 @@ class ScManag(MDScreenManager):
         
         self.switch_redled(already_sent[0])
         self.count = already_sent[1]
-        
 
+        self.listener = KeyBoardLis()
 
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
@@ -452,22 +468,10 @@ class ScManag(MDScreenManager):
         for child in reversed(conteiner):
             if isinstance(child, MDTextField):
                 data_list.append(child.text)
-        print("DATA LIST:", data_list)
+        print("DATA LIST:",data_list)
         timestamp = str(datetime.now(timezone.utc)).replace(" ", "_")
         
-        # Field verification (for `corp_mes` only)
-        def numeric_field(input) -> bool:
-            '''Search for alphabetic characters.'''
-            detect = re.search(r"[A-Za-z]", input)
-            return True if detect else False
-
         if mode == "corp_mes":
-            verify = list()
-            for d in data_list:
-                verify.append(numeric_field(d))
-            
-            format_error = True if True in verify else False
-
             data ={
                 "timestamp":timestamp,
                 "medidas":{
@@ -478,7 +482,6 @@ class ScManag(MDScreenManager):
                     "dbo_mn":data_list[4]
                     }
                 }
-            
         elif mode == "bike_notes":
             data ={
                 "timestamp":timestamp,
@@ -494,8 +497,8 @@ class ScManag(MDScreenManager):
             
         def alta(*args):
             '''Send data to Firebase DB.'''
+            # `self.user['idToken']` mandatory for user verification
             try:
-                # `self.user['idToken']` mandatory for user verification
                 results = self.db.child(db_node).child(
                     datetime.now().strftime("%d-%m-%y(%H:%M:%S)")
                         ).set(data, self.user['idToken'])
@@ -510,25 +513,46 @@ class ScManag(MDScreenManager):
                 self.show_note("No se pudo enviar.")
             self.app.close_warng()
 
-        if format_error:
-            self.show_note("Entrada incorrecta.")
-        else:
-            self.app.close_warng()
-            self.app.warning(
-                text="¿Enviar medidas?",
-                ok_txt="Enviar",
-                dism_txt="Cancelar",
-                met1=alta
-            )
-        
-    # "sent data notice" method ("red led")
-    def switch_redled(self, on:bool):
+        self.app.close_warng()
+        self.app.warning(
+            text="¿Enviar medidas?",
+            ok_txt="Enviar",
+            dism_txt="Cancelar",
+            met1=alta
+        )
+    
+    # sent data notice method ("red led")
+    def switch_redled(self,on:bool):
         '''ON/OFF red led.'''
         if on:
             self.led_ico = "resources/led_rojo_on.ico"
         else:
             self.led_ico = "resources/led_rojo_off.ico"
 
+
+class KeyBoardLis(Widget):
+    '''Focus input by 'Enter key' behavior.'''
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # For keyboard keydown listening
+        Window.bind(on_key_down=self._keydown)
+
+    def _keydown(self, *args):
+        '''Detects ENTER key when pressed'''
+        global input_fields_pos
+
+        if args[1] == 13 and args[2] == 40:
+            print("\nContador:", input_fields_pos,"\n")
+            input_fields_pos += 1 
+            if input_fields_pos > 4:
+                input_fields_pos = 0
+
+
+class InputList(MDList, FocusBehavior):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+#focus_behavior
 
 class MedidasApp(MDApp):
     
@@ -549,7 +573,7 @@ class MedidasApp(MDApp):
             .15294117647058825, .6901960784313725),
             "elect_yell": (1, 0.98823529411, 0)
         }
-            
+
     def on_resize(self, *args):
         '''Al cambiar dimensiones de ventana'''
         self.wresize["bar_fsize"] = str(int(Window.size[1]/18))
