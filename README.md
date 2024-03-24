@@ -1,4 +1,4 @@
-# Antotador personal
+# Anotador personal
 
 > Concepto: seguimiento peso corporal y otras mediciones,
 > así como otros eventos que me gusta registar como pinchaduras
