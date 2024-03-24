@@ -164,7 +164,7 @@ KV = '''
             orientation: 'vertical'
             padding: 15
             ScrollView:
-                InputList:
+                MDList:
                     id: input_fields
                     spacing: 10
     Screen:
@@ -194,7 +194,7 @@ KV = '''
             orientation: 'vertical'
             padding: 15
             ScrollView:
-                InputList:
+                MDList:
                     id: input_bike
                     spacing: 10
 '''
@@ -268,8 +268,14 @@ class Input(MDTextField, FocusBehavior):
     n = StringProperty()
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        FocusBehavior.__init__(self)
+        
         Window.bind(on_key_down=self._keydown)
-
+    
+    def on_enter(self):
+        print("!")
+        self.focus = True
+        
     def _keydown(self, *args):
         '''Detects ENTER key when pressed'''
         global input_fields_pos
@@ -278,7 +284,13 @@ class Input(MDTextField, FocusBehavior):
             # print(self, input_fields_pos)
             if input_fields_pos == int(self.n):
                 print("ENTRA en", self.n)
-                self.focus = True
+                # self.next.focus = True
+                prev = self.get_focus_previous()
+                next = self.get_focus_next()
+                self.keyboard_on_key_down()
+                print(prev)
+                print(next)
+                next.focus = True
 
 
 class ScManag(MDScreenManager):
@@ -302,17 +314,12 @@ class ScManag(MDScreenManager):
         self.config = ConfigParser()
         self.config.read("db.ini")
         
-        # Firebase init
-        self.fbase = FireBase(self.config)
-        self.auth = self.fbase.auth()
-        self.db = self.fbase.db()
-        ## DB directory
-        self.db_node_target1 = self.config["pyrebase"]["db_node1"]
-        self.db_node_target2 = self.config["pyrebase"]["db_node2"]
         ## verify store user
         self.user = None
         self.mail = self.config["user"]["mail"]
         self.pwd = self.config["user"]["pwd"]
+        
+        self.listener = KeyBoardLis(self)
         
         if self.mail == "" or self.pwd == "":
             self.current = "auth_sign"
@@ -326,64 +333,72 @@ class ScManag(MDScreenManager):
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
-        
-        # input list declaration (Screen: 'corp_mes')
-        for text, n in zip(["Peso (g)",
-             "Diámetro SO max (cm)",
-             "Diámetro SO max (cm)",
-             "Diámetro BO max (cm)",
-             "Diámetro BO max (cm)"], [str(n) for n in range(5)]):
-            self.ids.input_fields.add_widget(
-                Input(
-                    n = n,
-                    size_hint=(.7, .08),
-                    mode="rectangle",
-                    font_size=self.app.wresize["bar_fsize"],
-                    hint_text=text,
-                    write_tab=False,
-                    line_color_normal=self.app.theme_cls.accent_color
+            
+            # Firebase init
+            self.fbase = FireBase(self.config)
+            self.auth = self.fbase.auth()
+            self.db = self.fbase.db()
+            ## DB directory
+            self.db_node_target1 = self.config["pyrebase"]["db_node1"]
+            self.db_node_target2 = self.config["pyrebase"]["db_node2"]        
+            
+            
+            # input list declaration (Screen: 'corp_mes')
+            for text, n in zip(["Peso (g)",
+                "Diámetro SO max (cm)",
+                "Diámetro SO max (cm)",
+                "Diámetro BO max (cm)",
+                "Diámetro BO max (cm)"], [str(n) for n in range(5)]):
+                self.ids.input_fields.add_widget(
+                    MDTextField(
+                        # n = n,
+                        size_hint=(.7, .08),
+                        mode="rectangle",
+                        font_size=self.app.wresize["bar_fsize"],
+                        hint_text=text,
+                        write_tab=False,
+                        line_color_normal=self.app.theme_cls.accent_color
+                    )
                 )
-            )
-        # Trick to allow user to adjust visibility of input boxes in phones
-        # (because of android onscreen keyboard)
-        for i in range(50):
-            self.ids.input_fields.add_widget(
-                MDLabel(size_hint=(.7, .08))
-            )
-        
-        # input list declaration (Screen: 'bike_notes')
-        for text in ["Fecha (dd/mm/aa)",
-             "Bicicleta",
-             "Rueda",
-             "Cámara",
-             "n° Pinchaduras",
-             "Cámara reemplazo"]:
-            self.ids.input_bike.add_widget(
-                MDTextField(
-                    size_hint=(.7, .08),
-                    mode="rectangle",
-                    font_size=self.app.wresize["bar_fsize"],
-                    hint_text=text,
-                    write_tab=False,
-                    line_color_normal=self.app.theme_cls.accent_color
+            # Trick to allow user to adjust visibility of input boxes in phones
+            # (because of android onscreen keyboard)
+            for i in range(50):
+                self.ids.input_fields.add_widget(
+                    MDLabel(size_hint=(.7, .08))
                 )
-            )
-        for i in range(50):
-            self.ids.input_bike.add_widget(
-                MDLabel(size_hint=(.7, .08))
-            )
+            
+            # input list declaration (Screen: 'bike_notes')
+            for text in ["Fecha (dd/mm/aa)",
+                "Bicicleta",
+                "Rueda",
+                "Cámara",
+                "n° Pinchaduras",
+                "Cámara reemplazo"]:
+                self.ids.input_bike.add_widget(
+                    MDTextField(
+                        size_hint=(.7, .08),
+                        mode="rectangle",
+                        font_size=self.app.wresize["bar_fsize"],
+                        hint_text=text,
+                        write_tab=False,
+                        line_color_normal=self.app.theme_cls.accent_color
+                    )
+                )
+            for i in range(50):
+                self.ids.input_bike.add_widget(
+                    MDLabel(size_hint=(.7, .08))
+                )
 
-        # "sent led" on?
-        already_sent = self.fbase.check_today_data(
-            self.db, 
-            self.db_node_target1, 
-            self.user["idToken"]
-            )
-        
-        self.switch_redled(already_sent[0])
-        self.count = already_sent[1]
+            # "sent led" on?
+            already_sent = self.fbase.check_today_data(
+                self.db, 
+                self.db_node_target1, 
+                self.user["idToken"]
+                )
+            
+            self.switch_redled(already_sent[0])
+            self.count = already_sent[1]
 
-        self.listener = KeyBoardLis()
 
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
     def sign_in(self):
@@ -532,20 +547,35 @@ class ScManag(MDScreenManager):
 
 class KeyBoardLis(Widget):
     '''Focus input by 'Enter key' behavior.'''
-    def __init__(self, **kwargs):
+    def __init__(self, scman:ScManag, **kwargs):
         super().__init__(**kwargs)
         # For keyboard keydown listening
         Window.bind(on_key_down=self._keydown)
-
+        self.scman = scman
+        
     def _keydown(self, *args):
         '''Detects ENTER key when pressed'''
         global input_fields_pos
 
         if args[1] == 13 and args[2] == 40:
-            print("\nContador:", input_fields_pos,"\n")
-            input_fields_pos += 1 
-            if input_fields_pos > 4:
-                input_fields_pos = 0
+            print(self.scman.ids.mail)
+            self.scman.ids.mail.focus = True
+            # print("\nContador:", input_fields_pos,"\n")
+            
+            # conteiner = self.scman.ids.input_fields.children
+            
+            # fields = list()
+            # for child in reversed(conteiner):
+            #     if isinstance(child, MDTextField):
+            #         fields.append(child)
+            # print(fields[input_fields_pos].focus)
+            # fields[input_fields_pos].focus = True
+            # print(fields[input_fields_pos].__dict__)
+            # input_fields_pos += 1 
+            # if input_fields_pos > 4:
+            #     input_fields_pos = 0
+        
+        
 
 
 class InputList(MDList, FocusBehavior):
