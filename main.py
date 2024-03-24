@@ -1,5 +1,5 @@
 '''
-# Antotador personal.
+# Anotador personal.
 Intento de aplicación diseñada para android.
 
 '''
@@ -69,7 +69,9 @@ KV = '''
                 pos_hint: {'center_x': .49,'center_y': .4}
                 font_size: app.wresize["titl_font_s"]
                 text: "Entrar"
-                on_release: app.root.sign_in()
+                on_release: 
+                    app.root.sign_in()
+                    app.root.corp_mes_init()
             MDFlatButton:
                 pos_hint: {'center_x': .27,'center_y': .3}
                 font_size: app.wresize["titl_font_s"]
@@ -121,7 +123,7 @@ KV = '''
                 text: "[color=#dede35]Volver a Ingresar.[/color]"
                 on_press: 
                     app.root.transition = SlideTransition(direction="right")
-                    app.root.current = "auth_sign"         
+                    app.root.current = "auth_sign"     
     Screen:
         name: "corp_mes"
         FloatLayout:
@@ -291,8 +293,9 @@ class ScManag(MDScreenManager):
         
         # Firebase init
         self.fbase = FireBase(self.config)
-        self.auth = self.fbase.auth()
         self.db = self.fbase.db()
+        self.auth = self.fbase.auth()
+        
         ## DB directory
         self.db_node_target1 = self.config["pyrebase"]["db_node1"]
         self.db_node_target2 = self.config["pyrebase"]["db_node2"]
@@ -308,13 +311,16 @@ class ScManag(MDScreenManager):
             self.user_pwd = self.pwd
             print(f"\nUSUARIO: {self.mail}\n")
             self.sign_in()
+            self.corp_mes_init()
             self.current = "corp_mes"
             
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
         
-        # input list declaration (Screen: 'corp_mes')
+    def corp_mes_init(self):
+        '''Initialize screen: "corp_mes" '''
+        # input list declaration
         for text in ["Peso (g)",
              "Diámetro SO max (cm)",
              "Diámetro SO max (cm)",
@@ -391,6 +397,7 @@ class ScManag(MDScreenManager):
 
         if self.pwd_r1 == self.pwd_r2:
             try:
+                print("auth:",self.auth)
                 r = self.auth.create_user_with_email_and_password(self.mail_r, self.pwd_r1)
                 print(r)
                 print("NUEVAS CRED:", self.mail_r, self.pwd_r1)
