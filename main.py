@@ -71,7 +71,7 @@ KV = '''
                 text: "Entrar"
                 on_release: 
                     app.root.sign_in()
-                    app.root.corp_mes_init()
+                    app.root.input_lists_init()
             MDFlatButton:
                 pos_hint: {'center_x': .27,'center_y': .3}
                 font_size: app.wresize["titl_font_s"]
@@ -268,7 +268,13 @@ class Input(MDTextField):
     id = StringProperty()
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        
+    def on_parent(self, widget, parent):
+        '''Set focus in next `Input`.'''
+        next = self.get_focus_next()
+        if next:
+            print("next: ", next.id)
+            next.focus = True
 
 class ScManag(MDScreenManager):
     
@@ -311,29 +317,30 @@ class ScManag(MDScreenManager):
             self.user_pwd = self.pwd
             print(f"\nUSUARIO: {self.mail}\n")
             self.sign_in()
-            self.corp_mes_init()
+            self.input_lists_init()
             self.current = "corp_mes"
             
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
         
-    def corp_mes_init(self):
-        '''Initialize screen: "corp_mes" '''
+    def input_lists_init(self):
+        '''Initialize screens: "corp_mes" and "bike_notes".'''
+
         # input list declaration
         t_ids = ["pes", "somin", "somax", "bomin", "bomax"]
-        _t_ids = ["somin", "somax", "bomin", "bomax", "pes"]
         for text, id in zip(["Peso (g)",
              "Diámetro SO max (cm)",
              "Diámetro SO min (cm)",
              "Diámetro BO max (cm)",
              "Diámetro BO min (cm)"],t_ids):
             self.ids.input_fields.add_widget(
-                MDTextField(
+                Input(
                     id=id,
                     size_hint=(.7, .08),
                     mode="rectangle",
                     multiline=False,
+                    write_tab=False,
                     font_size=self.app.wresize["bar_fsize"],
                     hint_text=text,
                     line_color_normal=self.app.theme_cls.accent_color
@@ -378,7 +385,7 @@ class ScManag(MDScreenManager):
         self.count = already_sent[1]
         
         # prueb
-        # self.lis = KeyBoardLis(self)
+        self.lis = KeyBoardLis(self)
     
 
     # authentication methods (Screens: 'auth_sign' & 'auth_regist')
@@ -545,20 +552,34 @@ class ScManag(MDScreenManager):
 
 class KeyBoardLis:
     '''Focus input by 'Enter key' behavior.'''
-    def __init__(self, scman:ScManag):
-        # For keyboard keydown listening
-        Window.bind(on_key_down=self._keydown)
-        self.scman = scman
-        
-    def _keydown(self, *args):
-        '''Detects ENTER key when pressed'''
-        
-        if args[1] == 13 and args[2] == 40:
-            
-            for child in reversed(self.scman.ids.input_fields.children):
-                if isinstance(child, MDTextField):
-                    print(child.id)
+    def __init__(self, sc_man:ScManag):
+        # For keyboard "key up" listening
+        # NOTE: Tried with `on_key_down` and it didn't work
+        Window.bind(on_key_up=self._keyup)
+        self.sc_man = sc_man
+        self.enter_count = 0
 
+    def _keyup(self, *args):
+        '''
+        Detects ENTER key when pressed. 
+        Loop `focus` across `Input` of "corp_mes" screen.
+        '''
+        if args[1] == 13 and args[2] == 40:
+            self.sc_man.ids.input_fields.children[self.enter_count]
+
+            inputs = list()
+            for child in reversed(self.sc_man.ids.input_fields.children):
+                if isinstance(child, MDTextField):
+                   inputs.append(child)
+            
+            inputs[self.enter_count].on_parent(inputs[self.enter_count], 
+                                               self.sc_man.ids.input_fields)
+
+            if self.enter_count < 4:
+                self.enter_count += 1
+            else:
+                self.enter_count = 0
+            
 
 class MedidasApp(MDApp):
     
