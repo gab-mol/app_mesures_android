@@ -388,11 +388,17 @@ class ScManag(MDScreenManager):
         self.switch_redled(already_sent[0])
         self.count = already_sent[1]
         
-        # prueb
+        # init keyboard listener for 'Enter' key selection
         self.lis = KeyBoardLis(self)
-    
 
-    # authentication methods (Screens: 'auth_sign' & 'auth_regist')
+    def switch_redled(self, on:bool):
+        '''ON/OFF red led for sent data notice.'''
+        if on:
+            self.led_ico = "resources/led_rojo_on.ico"
+        else:
+            self.led_ico = "resources/led_rojo_off.ico"
+
+    # authentication methods (Screens: 'auth_sign' & 'auth_regist') #########
     def sign_in(self):
         print("sign_in:", self.user_mail, self.user_pwd)
         try:
@@ -544,14 +550,6 @@ class ScManag(MDScreenManager):
                 dism_txt="Cancelar",
                 met1=alta
             )
-        
-    # "sent data notice" method ("red led")
-    def switch_redled(self, on:bool):
-        '''ON/OFF red led.'''
-        if on:
-            self.led_ico = "resources/led_rojo_on.ico"
-        else:
-            self.led_ico = "resources/led_rojo_off.ico"
 
 
 class KeyBoardLis:
