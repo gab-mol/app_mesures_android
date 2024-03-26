@@ -270,10 +270,14 @@ class Input(MDTextField):
         super().__init__(*args, **kwargs)
         
     def on_parent(self, widget, parent):
-        '''Set focus in next `Input`.'''
+        '''
+        Set focus in next `Input`.
+        args:
+            - widget: this widget
+            - parent: parent widget (here `MDList`)
+        '''
         next = self.get_focus_next()
         if next:
-            print("next: ", next.id)
             next.focus = True
 
 class ScManag(MDScreenManager):
@@ -361,7 +365,7 @@ class ScManag(MDScreenManager):
              "n° Pinchaduras",
              "Cámara reemplazo"]:
             self.ids.input_bike.add_widget(
-                MDTextField(
+                Input(
                     size_hint=(.7, .08),
                     mode="rectangle",
                     font_size=self.app.wresize["bar_fsize"],
@@ -557,29 +561,43 @@ class KeyBoardLis:
         # NOTE: Tried with `on_key_down` and it didn't work
         Window.bind(on_key_up=self._keyup)
         self.sc_man = sc_man
-        self.enter_count = 0
-
+        self.count = 0
+        
     def _keyup(self, *args):
         '''
         Detects ENTER key when pressed. 
         Loop `focus` across `Input` of "corp_mes" screen.
         '''
-        if args[1] == 13 and args[2] == 40:
-            self.sc_man.ids.input_fields.children[self.enter_count]
-
+        def switch_focus(text_in_l:str):
+            '''
+            args:
+                - text_in_l: "input_fields" or "input_bike"
+            '''
             inputs = list()
-            for child in reversed(self.sc_man.ids.input_fields.children):
+            for child in reversed(getattr(self.sc_man.ids, text_in_l).children):
                 if isinstance(child, MDTextField):
                    inputs.append(child)
-            
-            inputs[self.enter_count].on_parent(inputs[self.enter_count], 
-                                               self.sc_man.ids.input_fields)
 
-            if self.enter_count < 4:
-                self.enter_count += 1
+            textin = inputs[self.count]
+            textin.on_parent(textin, getattr(self.sc_man.ids, text_in_l))   
+
+            if self.count < (len(inputs)-1):
+                self.count += 1
             else:
-                self.enter_count = 0
-            
+                self.count = 0
+
+        # after 'Enter' key release
+        if args[1] == 13 and args[2] == 40:
+            sc_name = self.sc_man.current_screen.name
+            if sc_name == "corp_mes":
+                texin_list = "input_fields"
+            elif sc_name == "bike_notes":
+                texin_list = "input_bike"
+            else:
+                raise Exception("KeyBoardLis: Wrong Screen!")
+
+            switch_focus(texin_list)
+
 
 class MedidasApp(MDApp):
     
