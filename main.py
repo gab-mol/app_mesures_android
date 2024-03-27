@@ -20,12 +20,12 @@ from kivymd.uix.label import MDLabel
 from kivymd.uix.textfield import MDTextField
 from kivy.metrics import dp
 from kivy.config import ConfigParser
+import asynckivy as ak
+
 # other modules
 from datetime import datetime, timezone
 import pyrebase
 import re
-
-
 
 # KV code         ####     ####     ####
 KV = '''
@@ -71,7 +71,7 @@ KV = '''
                 text: "Entrar"
                 on_release: 
                     app.root.sign_in()
-                    app.root.corp_mes_init()
+                    app.root.input_lists_init()
             MDFlatButton:
                 pos_hint: {'center_x': .27,'center_y': .3}
                 font_size: app.wresize["titl_font_s"]
@@ -198,8 +198,11 @@ KV = '''
                     id: input_bike
                     spacing: 10
 '''
-
 Builder.load_string(KV)
+
+# Focused `Input` instance
+focus_txin = None
+
 
 class FireBase:
     
@@ -268,6 +271,28 @@ class Input(MDTextField):
     id = StringProperty()
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+    async def on_parent(self, widget, parent):
+        '''
+        Set focus in next `Input`.
+
+        ### Args:
+            - widget: this widget
+            - parent: parent widget (here `MDList`)
+        '''
+        if self.next:
+            self.next.focus = True
+
+    def on_focus(self, instance, value, *largs):
+        '''
+        Set `Input.next` relative to current focused instance.
+        '''
+        global focus_txin
+        focus_txin = self
+        self.next = self.get_focus_next()
+
+        print("on_focus:", self.id)
+        print("on_focus next:", self.next.id)
 
 
 class ScManag(MDScreenManager):
@@ -311,25 +336,30 @@ class ScManag(MDScreenManager):
             self.user_pwd = self.pwd
             print(f"\nUSUARIO: {self.mail}\n")
             self.sign_in()
-            self.corp_mes_init()
+            self.input_lists_init()
             self.current = "corp_mes"
             
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
         
-    def corp_mes_init(self):
-        '''Initialize screen: "corp_mes" '''
+    def input_lists_init(self):
+        '''Initialize screens: "corp_mes" and "bike_notes".'''
+
         # input list declaration
-        for text in ["Peso (g)",
+        t_ids = ["pes", "somin", "somax", "bomin", "bomax"]
+        for text, id in zip(["Peso (g)",
              "Diámetro SO max (cm)",
-             "Diámetro SO max (cm)",
+             "Diámetro SO min (cm)",
              "Diámetro BO max (cm)",
-             "Diámetro BO max (cm)"]:
+             "Diámetro BO min (cm)"],t_ids):
             self.ids.input_fields.add_widget(
-                MDTextField(
+                Input(
+                    id=id,
                     size_hint=(.7, .08),
                     mode="rectangle",
+                    multiline=False,
+                    write_tab=False,
                     font_size=self.app.wresize["bar_fsize"],
                     hint_text=text,
                     line_color_normal=self.app.theme_cls.accent_color
@@ -343,14 +373,16 @@ class ScManag(MDScreenManager):
             )
         
         # input list declaration (Screen: 'bike_notes')
-        for text in ["Fecha (dd/mm/aa)",
+        t_ids2 = ["fec","bici", "rued", "cam", "n", "camr"]
+        for text, id in zip(["Fecha (dd/mm/aa)",
              "Bicicleta",
              "Rueda",
              "Cámara",
              "n° Pinchaduras",
-             "Cámara reemplazo"]:
+             "Cámara reemplazo"], t_ids2):
             self.ids.input_bike.add_widget(
-                MDTextField(
+                Input(
+                    id=id,
                     size_hint=(.7, .08),
                     mode="rectangle",
                     font_size=self.app.wresize["bar_fsize"],
@@ -373,9 +405,17 @@ class ScManag(MDScreenManager):
         self.switch_redled(already_sent[0])
         self.count = already_sent[1]
         
+        # init keyboard listener for 'Enter' key selection
+        self.lis = KeyBoardLis(self)
 
+    def switch_redled(self, on:bool):
+        '''ON/OFF red led for sent data notice.'''
+        if on:
+            self.led_ico = "resources/led_rojo_on.ico"
+        else:
+            self.led_ico = "resources/led_rojo_off.ico"
 
-    # authentication methods (Screens: 'auth_sign' & 'auth_regist')
+    # authentication methods (Screens: 'auth_sign' & 'auth_regist') #########
     def sign_in(self):
         print("sign_in:", self.user_mail, self.user_pwd)
         try:
@@ -527,14 +567,41 @@ class ScManag(MDScreenManager):
                 dism_txt="Cancelar",
                 met1=alta
             )
+
+
+class KeyBoardLis:
+    '''Focus input by 'Enter key' behavior.'''
+    def __init__(self, sc_man:ScManag):
+        # For keyboard "key up" listening
+        # NOTE: Tried with `on_key_down` and it didn't work
+        Window.bind(on_key_up=self._keyup)
+        self.sc_man = sc_man
         
-    # "sent data notice" method ("red led")
-    def switch_redled(self, on:bool):
-        '''ON/OFF red led.'''
-        if on:
-            self.led_ico = "resources/led_rojo_on.ico"
-        else:
-            self.led_ico = "resources/led_rojo_off.ico"
+    def _keyup(self, *args):
+        '''
+        Detects ENTER key when pressed. 
+        Loop `focus` across `Input` of "corp_mes" screen.
+        '''
+        def switch_focus(text_in_l:str):
+            '''
+            args:
+                - text_in_l: "input_fields" or "input_bike"
+            '''
+            # global `focus_txin` contein the focused `Input`.
+            if focus_txin:
+                ak.start(focus_txin.on_parent(focus_txin, getattr(self.sc_man.ids, text_in_l)))
+
+        # after 'Enter' key release
+        if args[1] == 13 and args[2] == 40:
+            sc_name = self.sc_man.current_screen.name
+            if sc_name == "corp_mes":
+                texin_list = "input_fields"
+            elif sc_name == "bike_notes":
+                texin_list = "input_bike"
+            else:
+                raise Exception("KeyBoardLis: Wrong Screen!")
+
+            switch_focus(texin_list)
 
 
 class MedidasApp(MDApp):
