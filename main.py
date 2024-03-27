@@ -20,6 +20,7 @@ from kivymd.uix.label import MDLabel
 from kivymd.uix.textfield import MDTextField
 from kivy.metrics import dp
 from kivy.config import ConfigParser
+import asynckivy as ak
 # other modules
 from datetime import datetime, timezone
 import pyrebase
@@ -200,6 +201,8 @@ KV = '''
 '''
 
 Builder.load_string(KV)
+focus_txin = None
+
 
 class FireBase:
     
@@ -269,16 +272,27 @@ class Input(MDTextField):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-    def on_parent(self, widget, parent):
+    async def on_parent(self, widget, parent):
         '''
         Set focus in next `Input`.
         args:
             - widget: this widget
             - parent: parent widget (here `MDList`)
         '''
-        next = self.get_focus_next()
-        if next:
-            next.focus = True
+        print("on_parent", self.id)
+        # self.next = self.get_focus_next()
+        if self.next:
+            self.next.focus = True
+
+    def on_focus(self, instance, value, *largs):
+        '''Set next widget relative to current focused instance.'''
+        # self.next = self.get_focus_next()
+        print("on_focus", self.id)
+        global focus_txin
+        focus_txin = self
+        self.next = self.get_focus_next()
+        print("on_focus next:", self.next.id)
+
 
 class ScManag(MDScreenManager):
     
@@ -327,6 +341,9 @@ class ScManag(MDScreenManager):
             # Read database connection info from "db.ini"
             self.db_url = self.config["firebase"]["url"]
             self.data_name = self.config["firebase"]["data_name"]
+
+            print("END ScManag init--------------------")
+
         
     def input_lists_init(self):
         '''Initialize screens: "corp_mes" and "bike_notes".'''
@@ -358,14 +375,16 @@ class ScManag(MDScreenManager):
             )
         
         # input list declaration (Screen: 'bike_notes')
-        for text in ["Fecha (dd/mm/aa)",
+        t_ids2 = ["fec","bici", "rued", "cam", "n", "camr"]
+        for text, id in zip(["Fecha (dd/mm/aa)",
              "Bicicleta",
              "Rueda",
              "Cámara",
              "n° Pinchaduras",
-             "Cámara reemplazo"]:
+             "Cámara reemplazo"], t_ids2):
             self.ids.input_bike.add_widget(
                 Input(
+                    id=id,
                     size_hint=(.7, .08),
                     mode="rectangle",
                     font_size=self.app.wresize["bar_fsize"],
@@ -390,6 +409,7 @@ class ScManag(MDScreenManager):
         
         # init keyboard listener for 'Enter' key selection
         self.lis = KeyBoardLis(self)
+        print("END input_lists_init--------------------")
 
     def switch_redled(self, on:bool):
         '''ON/OFF red led for sent data notice.'''
@@ -559,7 +579,7 @@ class KeyBoardLis:
         # NOTE: Tried with `on_key_down` and it didn't work
         Window.bind(on_key_up=self._keyup)
         self.sc_man = sc_man
-        self.count = 0
+        # self.count = 0
         
     def _keyup(self, *args):
         '''
@@ -576,13 +596,19 @@ class KeyBoardLis:
                 if isinstance(child, MDTextField):
                    inputs.append(child)
 
-            textin = inputs[self.count]
-            textin.on_parent(textin, getattr(self.sc_man.ids, text_in_l))   
+            # textin = inputs[self.count]
+            if focus_txin:
+                ak.start(focus_txin.on_parent(focus_txin, getattr(self.sc_man.ids, text_in_l)))
 
-            if self.count < (len(inputs)-1):
-                self.count += 1
-            else:
-                self.count = 0
+            # for txin in inputs:
+            #     # if txin.focus == True:
+            #     #     curr_txin = txin
+            #     print(txin.focused)
+
+            # if self.count < (len(inputs)-1):
+            #     self.count += 1
+            # else:
+            #     self.count = 0
 
         # after 'Enter' key release
         if args[1] == 13 and args[2] == 40:
