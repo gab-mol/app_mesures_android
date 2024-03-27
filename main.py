@@ -56,6 +56,7 @@ KV = '''
                 mode: "rectangle"
                 font_size: app.wresize["bar_fsize"]
                 line_color_normal: app.theme_cls.accent_color
+                text: root.user_mail
             MDTextField:
                 id: pwd
                 pos_hint: {'center_x': 0.5,'center_y': .55}
@@ -65,6 +66,7 @@ KV = '''
                 font_size: app.wresize["bar_fsize"]
                 password: True
                 line_color_normal: app.theme_cls.accent_color
+                text: root.user_pwd
             MDRaisedButton:
                 pos_hint: {'center_x': .49,'center_y': .4}
                 font_size: app.wresize["titl_font_s"]
@@ -158,6 +160,13 @@ KV = '''
                 on_press:
                     app.root.transition = SlideTransition(direction="right")
                     app.root.current = "bike_notes"
+            MDIconButton:
+                icon: "account"
+                pos_hint: {'right': .59, "center_y": .65}
+                icon_size: app.wresize["bar_fsize"]
+                on_press:
+                    app.root.transition = SlideTransition(direction="right")
+                    app.root.current = "auth_sign"
 
         BoxLayout:
             size_hint: 1, .9
